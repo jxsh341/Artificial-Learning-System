@@ -1,0 +1,94 @@
+# Curriculum-scheduling study (Phase B) on the FROZEN successful baseline:
+# adjacency task, bare marker features (node_feature_dim: 2), sum aggregation,
+# bottlenecked SSM state (8), generic blank observations, 2000 train instances.
+#
+# Conditions (budget-matched at episodes_total optimizer-step episodes each):
+#   A_immediate  : immediate task only
+#   B_delayed    : delayed task only
+#   C_staged     : immediate, then delayed
+#   D_interleaved: immediate and delayed episodes alternated
+#
+# Pre-registered success criteria (study.success_threshold):
+#   >= 90% of seeds reach delayed_test_accuracy >= 0.9 under the chosen
+#   curriculum; successful seeds show a substantial state-reset drop;
+#   unseen instances/sizes stay strong; the degree-preserving control holds.
+#
+# Usage: python scripts/run_curriculum_study.py --config configs/experiments/curriculum_study.yaml
+experiment_name: curriculum_study
+seed: 0
+seeds: [0, 1, 2]
+results_dir: results
+
+graph:
+  node_feature_dim: 2     # bare marker channel: nothing to memorize but structure
+  edge_feature_dim: 0
+
+gnn:
+  layers: 2
+  hidden_dim: 64
+  dropout: 0.0
+  aggregation: sum
+  residual: true
+  use_edge_features: false
+
+ssm:
+  state_dim: 8            # bottleneck: cannot memorize instances, can hold one answer
+  diagonal: true
+  max_radius: 0.99
+  init_decay: 0.9
+  nonlinearity: tanh
+
+readout:
+  pooling: attention
+  selected_nodes: null
+  head_hidden: 0
+
+task:
+  type: graph_classification
+  label_mode: adjacency
+  neg_min_distance: 3
+  num_nodes: 100
+  max_path_len: 3
+  edge_density: 0.04
+  marker_dim: 2
+  directed: false
+  dataset_seed: 123
+  num_train: 2000
+  num_test: 200
+  test_num_nodes: 200
+  delay: 3
+  keep_markers_during_delay: false
+  blank_mode: generic     # no instance information outside the presentation step
+  reward_correct: 1.0
+  reward_incorrect: 0.0
+  stochastic_prob: 0.0
+
+training:
+  batch_size: 16
+  sequence_length: 32
+  episodes: 400           # used by condition schedules that don't override
+  learning_rate: 0.001
+  weight_decay: 0.0
+  grad_clip: 1.0
+  record_aux_every: 0
+
+evaluation:
+  criterion: 0.85
+  criterion_window: 25
+  eval_batch_size: 16
+
+study:
+  episodes_total: 400     # budget matched across conditions (optimizer steps)
+  chunk_size: 100         # probe every 100 episodes (Phase C)
+  success_threshold: 0.9
+  delay_retention_delays: [0, 3, 10, 30, 100]
+  counterfactual: true
+  rewired_levels: [1.0]
+  conditions:
+    A_immediate: {schedule: [[immediate, 400]]}
+    B_delayed: {schedule: [[delayed, 400]]}
+    C_staged: {schedule: [[immediate, 200], [delayed, 200]]}
+    D_interleaved: {schedule: interleaved}
+
+checkpointing:
+  save: true

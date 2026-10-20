@@ -1,0 +1,42 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# --- Tooling caches ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Experiment outputs (regenerable from configs/) ---
+results/*
+!results/.gitkeep
+runs/
+lightning_logs/
+tensorboard/
+
+# --- Regenerable data exports ---
+*.npz
+*.npy
+
+# --- Model checkpoints / large binaries ---
+*.pt
+*.pth
+*.ckpt
+
+# --- Secrets / local environment ---
+.env
+.env.*
+*.key
+credentials*
+secrets*
+
+# --- OS ---
+.DS_Store
+Thumbs.db

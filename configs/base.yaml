@@ -1,0 +1,98 @@
+# Base configuration — deliberately small (spec §29).
+experiment_name: base
+seed: 0
+seeds: [0, 1, 2, 3, 4]
+results_dir: results
+
+graph:
+  family: small_world
+  num_nodes: 100
+  node_feature_dim: 16
+  edge_feature_dim: 4
+  directed: true
+  weighted: false
+  seed: 123
+  params:
+    k: 6
+    p: 0.1
+
+gnn:
+  layers: 2
+  hidden_dim: 64
+  dropout: 0.0
+  aggregation: mean        # mean | sum | max
+  residual: true
+  use_edge_features: false
+
+ssm:
+  state_dim: 64
+  diagonal: true
+  max_radius: 0.99
+  init_decay: 0.9
+  nonlinearity: tanh
+
+readout:
+  pooling: attention       # mean | max | attention | selected
+  selected_nodes: null
+  head_hidden: 0
+
+task:
+  num_cues: 6
+  num_actions: 2
+  cue_feature_dim: 8
+  structure: hierarchical  # onehot | hierarchical
+  num_families: 2
+  feature_noise: 0.25
+  mapping: family          # cyclic | family | explicit list
+  delay: 2                 # blank steps between cue and response
+  reward_correct: 1.0
+  reward_incorrect: 0.0
+  stochastic_prob: 0.0
+  sensory_nodes: null      # null = all nodes carry the cue channel
+  train_cues: [0, 1, 3, 4]
+  test_cues: [2, 5]
+
+training:
+  batch_size: 16
+  sequence_length: 32
+  episodes: 100
+  learning_rate: 0.001
+  weight_decay: 0.0
+  grad_clip: 1.0
+  record_aux_every: 100
+
+evaluation:
+  acquisition: true
+  retention: true
+  reversal: true
+  generalization: true
+  criterion: 0.85
+  criterion_window: 25
+  retention_delays: [0, 10, 50, 100, 500]
+  retention_test_steps: 100
+  retention_distractor: blank   # blank | cues
+  reversal_episodes: 80
+  generalization_test_steps: 200
+  eval_batch_size: 16
+
+  # --- extended analyses (phase 2-4; off by default, enabled in experiment configs) ---
+  memory_curve: false
+  memory_curve_delays: [0, 2, 10, 50, 100, 500, 1000, 5000]
+  memory_curve_repeats: 20
+  temporal_perturbations: false
+  storage_locus: false
+  graph_perturbations: false
+  perturbation_steps: 200
+  noise_sigmas: [0.1, 0.5, 1.0]
+  reset_fractions: [0.25, 0.5, 0.75]
+  truncation_intervals: [2, 5, 10]
+  graph_edge_levels: [0.25, 0.5, 0.75]
+  graph_node_levels: [0.1, 0.25, 0.5]
+  graph_weight_levels: [0.25, 0.5, 1.0]
+
+ablations:
+  enabled: false
+  models: [M1, M2, M3, M4, M6]
+
+checkpointing:
+  save: true
