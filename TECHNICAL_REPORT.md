@@ -1,7 +1,8 @@
 # Technical Report — GNN + SSM Artificial Learning System
 
 **Status:** Working experimental platform, Milestones 1–5 complete (spec §27), graph-dependent
-benchmark complete, curriculum-scheduling study *implemented but not yet run*.
+benchmark complete, curriculum-scheduling study complete (best condition 2/3 seeds; reliability
+is the open problem).
 **Test suite:** 117 tests passing. **Results:** all numbers below are read directly from
 `results/<experiment>/summary.json` and per-seed CSVs (regenerable from
 `configs/` via the documented commands).
@@ -187,40 +188,88 @@ graph-dependent claims rest on the adjacency benchmark only; (d) all results are
 
 ---
 
-## 5. What is implemented but NOT yet run
+## 5. Curriculum-scheduling study (Phase B–D) — run and complete
 
-- **Curriculum-scheduling study** (Phase B–D): 4 budget-matched conditions (A immediate-only,
-  B delayed-only, C staged, D interleaved; 400 optimizer episodes each; intact-vs-reset probes
-  every 100 episodes; computed-answer retention curve; **delayed counterfactual probe**
-  (retain / update-on-new-evidence / irrelevant-new-info); success-rate aggregation against a
-  pre-registered 0.9 threshold). Code: `run_curriculum_study`, `run_curriculum_condition`,
-  `probe_delayed_intact_vs_reset`, `run_delay_retention`, `run_counterfactual_probe`;
-  config: `configs/experiments/curriculum_study.yaml`; CLI: `scripts/run_curriculum_study.py`.
-  Covered by a passing end-to-end smoke test (`test_curriculum_study.py`). **Not executed at
-  scale** (the launch was blocked; est. ~2.5–3 h for 4 conditions × 3 seeds).
-- The counterfactual and retention probes have so far only been exercised on tiny smoke-test
-  models — treat their outputs as unvalidated until the study runs.
+`results/curriculum_study/` — 4 budget-matched conditions × 3 seeds × 400 episodes
+(optimizer steps matched; presentation counts differ by construction and are recorded).
+Frozen baseline: adjacency task, bare markers, sum aggregation, 2-layer GNN, `state_dim` 8,
+generic blanks, 2000 instances. Success = delayed test accuracy ≥ 0.9.
+
+| condition | success rate | delayed accs | immediate accs |
+|---|---:|---|---|
+| A immediate-only | 0/3 | 0.48–0.52 (chance) | 1.00 (sanity check) |
+| B delayed-only | **0/3** | 0.48–0.52 | 0.49–0.52 (rule never learned) |
+| C staged (200 imm + 200 del) | 1/3 | 0.52 / 0.48 / **1.000** | 0.52 / 1.00 / 1.00 |
+| D interleaved | **2/3** | 0.48 / **1.000** / **1.000** | 1.00 / 1.00 / 1.00 |
+
+(Reference: the earlier staged run with a *double* phase-2 budget — 200 + 400 episodes —
+succeeded 3/4 seeds, `graph_adj_delayed_curr`; bridge success depends on delayed-phase budget.)
+
+**Failure-mode taxonomy** (from the intact-vs-reset trajectories recorded every 100 episodes —
+Phase C):
+
+1. **Bridge never emerges** (seed 0 under every schedule): immediate rule learned (imm 1.00
+   throughout), delayed accuracy flat at chance — initialization sensitivity.
+2. **Catastrophic forgetting of the rule** (C seed 0): immediate 1.00 after phase 1 → 0.52
+   after 200 delay-only episodes — the rule must be rehearsed during the delayed phase.
+3. **Bridge instability**: C seed 1 reached delayed 1.00 at episode 300 with the rule intact,
+   then *lost* the bridge by episode 400; D seed 1 emerged (0.95 @ ep200), lost (ep300),
+   and *recovered* (1.00 @ ep400). Interleaving appears to both protect the rule and give
+   the bridge repeated opportunities to re-emerge.
+
+**Joint discovery is impossible in this setup**: B_delayed (400 episodes) never learned
+either capability (both flat at chance in every probe).
+
+### Counterfactual probe (Phase D) — all successful seeds, all conditions = 1.000
+
+| condition | meaning | result (3 successful seeds) |
+|---|---|---:|
+| `no_change` | same instance re-presented → retain | 1.000 |
+| `update` / `update_flipped` | new instance, answer must change | **1.000** |
+| `irrelevant` | blank revision cue → must NOT overwrite | 1.000 |
+
+The retained state is not a rigid imprint: the system updates its answer on genuinely new
+evidence (including answer-flipping evidence) and ignores non-informative input.
+
+### Computed-answer retention (successful seeds, per-seed)
+
+- C seed 2: 1.000 at delays 0–30, chance at 100
+- D seed 2: 1.000 at delays 0–30, chance at 100
+- D seed 1: 1.000 at delays 0–3, chance at 10
+
+Working memory of the computed answer spans **3–30 steps — 1–10× the trained delay (3)** —
+seed-dependent, without ever being trained at those longer delays.
+
+### Interpretation
+
+The curriculum effect is real but its mechanism is now precise: (i) joint discovery of rule
++ bridge fails outright; (ii) the rule must be learned first *and rehearsed* during bridge
+training (interleaving dominates staged-with-equal-budget under this budget); (iii) the
+bridge emerges within 50–200 delayed episodes once the rule exists, but is initially
+unstable; (iv) one seed (0) never discovered the bridge under any schedule — an
+initialization/optimization sensitivity that remains the main open reliability problem.
+
+Pre-registered criterion (≥ 90% seed success) is **not yet met** by any condition (best:
+2/3).
 
 ---
 
 ## 6. Next steps (in order)
 
-1. **Run the curriculum study** (`python scripts/run_curriculum_study.py --config
-   configs/experiments/curriculum_study.yaml`), 3 seeds first, extend to ≥ 10 seeds if the
-   success rate is promising. Pre-registered criteria: ≥ 90% of seeds reach delayed accuracy
-   ≥ 0.9; successful seeds show the state-reset drop; unseen generalization holds; the
-   degree-preserving control holds; C/D ≥ A/B under matched budgets.
-2. **Investigate seed 0** (curriculum failure): compare phase-2 loss trajectories and state
-   norms of successful vs failed seeds; test whether more phase-2 episodes or an intermediate
-   delay (0→1→2→3) rescues it. This distinguishes optimization sensitivity from curriculum
-   dependence (your §4 hypotheses).
-3. **Counterfactual probe at scale** — distinguish rigid answer retention from flexible,
-   evidence-responsive state (implemented, unrun).
-4. **State-content analysis**: partial resets that preserve vs destroy the answer decodable
-   from state (the reset machinery already exists; linear probes on the 8-dim state are the
-   natural next tool).
-5. Only after reliability: delay scaling (3→10→30→100), then richer relational relations
-   (paths, multi-hop), then the Level-3 agenda (multiple items, evidence integration).
+1. **Bridge reliability**: the study localized three distinct failure modes (no-emergence,
+   rule forgetting, bridge instability). Interventions to test, one at a time:
+   higher `state_dim` with a *trainable* projection constraint; longer interleaved budgets;
+   bridge-stabilizing regularization (e.g., freeze GNN during phase 2); intermediate delays
+   (0→1→2→3). Target: ≥ 90% seed success (pre-registered threshold, currently best 2/3).
+2. **Seed-0-style failures**: compare phase-2 state trajectories of successful vs failed
+   seeds; test whether bridge discovery correlates with an observable early signal (e.g.,
+   intact-vs-reset divergence) that could trigger curriculum adjustment.
+3. **State-content analysis**: partial resets preserving vs destroying the answer, and
+   linear decodability of the answer from the 8-dim state — what exactly does the state carry?
+4. **Delay scaling**: successful seeds already generalize to 10–30 steps untrained; test
+   curricula with increasing delays to push the working-memory horizon deliberately.
+5. Only after reliability: richer relations (paths, multi-hop), multiple retained items,
+   then the Level-3 agenda (evidence integration, rule revision).
 
 ## 7. Reproduction
 

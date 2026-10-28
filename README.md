@@ -94,13 +94,17 @@ markers disappear. Controls include:
 | The cue task is graph-independent | 15 graph perturbations (up to 75% edge/node removal) caused **zero** behavioural change — motivating the graph-dependent benchmark |
 | Message passing is necessary for relational answers | no-message-passing ablations at chance; degree-preserving relabeled control = 1.000; unseen graph size = 1.000 |
 | Identity features cause shortcut memorization | 400→10000 instances + weight decay never induced the rule; bare marker features did (test 1.000, unseen size 1.000) |
-| The SSM carries computed answers across delays — with the right curriculum | immediate-first curriculum: 3/4 seeds reach 1.000 on the delayed task with state reset → chance (0.480); joint discovery without curriculum: 0/2 seeds |
+| The SSM carries computed answers across delays — with the right curriculum | joint discovery never works (0/5 runs); immediate-first or interleaved curricula: 3/4 + 2/3 seeds reach 1.000 on the delayed task with state reset → chance |
+| The retained state is flexible, not a rigid imprint | counterfactual probe: successful seeds update the answer on new evidence (incl. answer-flipping) = 1.000, ignore irrelevant input = 1.000 |
+| Working memory generalizes beyond the trained delay | successful seeds retain the computed answer perfectly to delays 10–30 (1–10× the trained delay 3) without training at those delays |
 | Mean aggregation oversquashes relational signals | sum aggregation fixed a hard propagation failure (0.58 → 0.81) |
 
 **Scope caveats:** the state-reset result establishes *necessity of the state*, not a
-general working-memory faculty; the working-memory result holds for 3/4 seeds under one
-curriculum on one task family; the curriculum-scheduling study (4 budget-matched
-conditions × seeds) is implemented and smoke-tested but **not yet run at scale**.
+general working-memory faculty; the working-memory result holds for 3/4 + 2/3 seeds under
+curricula on one task family; the curriculum study (4 budget-matched conditions × 3 seeds)
+shows *interleaved* training is the most reliable schedule (2/3) and pinpointed three
+distinct failure modes (bridge never emerges, catastrophic rule forgetting, bridge
+instability) — reliability beyond the pre-registered 90% threshold is the open problem.
 
 ---
 
@@ -160,7 +164,10 @@ and seeds.
 
 - Implemented, tested, and run: cue-task ARRG, scaling (100→1000), memory curves,
   temporal/graph perturbation batteries, storage-locus analysis, graph-dependent
-  benchmark (immediate + delayed + curriculum), ablation matrices.
-- Implemented, not yet run at scale: the curriculum-scheduling study and the
-  counterfactual probe (next milestone: ≥ 90% seed success rate under the chosen
-  curriculum, verified against the pre-registered criteria in the study config).
+  benchmark (immediate + delayed), ablation matrices, and the **curriculum-scheduling
+  study** (4 budget-matched conditions × 3 seeds: interleaved 2/3, staged 1/3,
+  delayed-only 0/3, immediate-only 0/3 — with failure-mode taxonomy from
+  intact-vs-reset trajectories, counterfactual probes, and computed-answer retention).
+- Counterfactual probe and retention curves: validated on successful seeds only.
+- Next milestone: bridge reliability — lift seed success above the pre-registered
+  90% threshold (see `TECHNICAL_REPORT.md` §6 for the intervention list).
