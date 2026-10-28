@@ -763,6 +763,17 @@ def run_curriculum_study(
         cond_summaries = []
         for seed in seed_list:
             run_dir = exp_dir / "curriculum" / cond_name / f"seed_{seed:03d}"
+            # resume guard: skip condition-seeds that already completed
+            existing_path = run_dir / "seed_summary.json"
+            if existing_path.exists():
+                try:
+                    existing = json.loads(existing_path.read_text())
+                    if int(existing.get("seed", -1)) == seed and existing.get("condition") == cond_name:
+                        log.info(f"[{cond_name}] seed={seed} already complete; loading {existing_path}")
+                        cond_summaries.append(existing)
+                        continue
+                except Exception:
+                    pass
             log.info(f"[{cond_name}] seed={seed} -> {run_dir}")
             cond_summaries.append(
                 run_curriculum_condition(cfg, datasets, seed, run_dir, cond_name, spec.get("schedule"), study_cfg)
