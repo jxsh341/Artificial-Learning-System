@@ -540,6 +540,7 @@ def run_curriculum_condition(
     cond_name: str,
     schedule,
     study_cfg: dict,
+    episodes_total_override: int | None = None,
 ) -> dict:
     """One seed of one curriculum condition.
 
@@ -582,11 +583,22 @@ def run_curriculum_condition(
         else None
     )
 
-    total = int(study_cfg.get("episodes_total", 400))
+    total = int(
+        episodes_total_override
+        if episodes_total_override is not None
+        else study_cfg.get("episodes_total", 400)
+    )
     chunk = max(1, int(study_cfg.get("chunk_size", 100)))
 
     probe_rows: list[dict] = []
     episodes_done = 0
+
+    def set_phase_trainable(phase: str) -> None:
+        """``delayed_frozen`` protects the learned relational representation by
+        freezing the GNN during bridge training (single-variable intervention)."""
+        frozen = phase == "delayed_frozen"
+        for p in model.graph_encoder.parameters():
+            p.requires_grad_(not frozen)
 
     def run_probe(tag: str) -> None:
         imm = graph_eval.probe_dataset(
@@ -613,6 +625,7 @@ def run_curriculum_condition(
     else:
         norm_schedule = [(ph, int(ep)) for ph, ep in schedule]
         for phase, episodes in norm_schedule:
+            set_phase_trainable(phase)
             trainer = trainer_imm if phase == "immediate" else trainer_del
             done_in_phase = 0
             while done_in_phase < episodes:
@@ -621,6 +634,7 @@ def run_curriculum_condition(
                 done_in_phase += n
                 episodes_done += n
                 run_probe(phase)
+        set_phase_trainable("immediate")  # restore for any post-training use
 
     logger.write_table("training_probes", probe_rows)
 
@@ -776,7 +790,10 @@ def run_curriculum_study(
                     pass
             log.info(f"[{cond_name}] seed={seed} -> {run_dir}")
             cond_summaries.append(
-                run_curriculum_condition(cfg, datasets, seed, run_dir, cond_name, spec.get("schedule"), study_cfg)
+                run_curriculum_condition(
+                    cfg, datasets, seed, run_dir, cond_name, spec.get("schedule"), study_cfg,
+                    episodes_total_override=spec.get("episodes_total"),
+                )
             )
         # resumable merge for condition dirs
         by_seed = {int(s["seed"]): s for s in cond_summaries}

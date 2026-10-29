@@ -188,6 +188,73 @@ graph-dependent claims rest on the adjacency benchmark only; (d) all results are
 
 ---
 
+## 6. Bridge-reliability experiments (single-variable interventions) — run and complete
+
+Pre-launch reproducibility milestone: `scripts/verify_reproducibility.py` reloads every
+saved checkpoint + stored config, rebuilds the dataset and model from config alone, and
+re-runs the probes — **12/12 condition-seeds reproduce the published metrics exactly**
+(tolerance 1e-6), and re-aggregated per-seed values match the committed `summary.json`.
+
+Two interventions, tested separately (never combined), 3 seeds each:
+
+### Intervention 1 — D800: interleaved training extended to 800 episodes
+
+`results/d800_interleaved/`: **3/3 seeds (100%)** — the pre-registered ≥ 90% criterion is met.
+
+| seed | trajectory (delayed intact/reset) | outcome |
+|---|---|---|
+| 0 | 0.48 → 0.48 → 0.48 → **0.90** @400 → 1.00 @500–800 | bridge emerged *after* the original budget — failure mode 1 was partly under-training |
+| 1 | 0.48 → 0.48 → 0.52 → 0.52 → **1.00** @500–800 | slower emergence |
+| 2 | **1.00** from episode 100 | early emergence, stable |
+
+State-reset dissociation holds in all seeds (intact 1.000, reset 0.48–0.52); immediate rule
+preserved everywhere (1.000); unseen-size 1.000 on seed 2, 0.505 on seeds 0–1 (anomaly, see
+below).
+
+### Intervention 2 — C_frozen: GNN frozen during the delayed phase (400-episode budget)
+
+`results/c_frozen_gnn/`: **3/3 seeds (100%)** — freezing the relational representation
+during bridge training rescued both seeds that failed under unfrozen staged training.
+
+| seed | bridge | immediate rule after frozen phase |
+|---|---|---|
+| 0 | emerged at ep300, stable | **0.52 — destroyed** despite the frozen GNN |
+| 1 | emerged at ep300, stable | **0.52 — destroyed** |
+| 2 | emerged at ep300, stable | 1.000 |
+
+**Key mechanistic finding**: freezing the GNN prevents representation forgetting but *not*
+readout forgetting — the immediate rule is read through the head/SSM pathway, and phase-2
+training reorganizes it for state-reading. Rule forgetting was therefore never (only) a GNN
+phenomenon. The trade-off is explicit: C_frozen buys 3/3 bridge success at the cost of the
+immediate skill (2/3 seeds); **D800 dominates** — 3/3 on both capabilities with no rule loss.
+
+### Updated reliability table
+
+| condition | budget | success | immediate preserved |
+|---|---|---:|---:|
+| B delayed-only | 400 | 0/3 | n/a (never learned) |
+| C staged | 400 | 1/3 | 1/3 |
+| C staged | 600 (200+400) | 3/4 | 3/4 |
+| D interleaved | 400 | 2/3 | 3/3 |
+| **D interleaved** | **800** | **3/3** | **3/3** |
+| **C staged, GNN frozen in phase 2** | 400 | **3/3** | 1/3 |
+
+**Open anomaly**: the unseen-size (n=200) probe is inconsistent — 0.505 in some successful
+runs, 1.000 in others (also inverted under C_frozen). The seen-size performance is always
+1.000. This is a scale-generalization weakness of the current readout (sum-pooled features
+scale with node count) and should be investigated before claiming size generalization.
+
+### Interpretation
+
+The bridge is reliably learnable given either (a) sufficient interleaved budget — emergence
+times ranged from episode 100 to 500 across seeds — or (b) a frozen relational
+representation. The three original failure modes reduce to: under-budget emergence (fixed by
+D800), readout forgetting (caused C's losses; *not* fixed but made irrelevant by D800's
+rehearsal), and genuine bridge-instability (absent in both successful interventions' final
+phases).
+
+---
+
 ## 5. Curriculum-scheduling study (Phase B–D) — run and complete
 
 `results/curriculum_study/` — 4 budget-matched conditions × 3 seeds × 400 episodes
@@ -254,24 +321,22 @@ Pre-registered criterion (≥ 90% seed success) is **not yet met** by any condit
 
 ---
 
-## 6. Next steps (in order)
+## 7. Next steps (in order)
 
-1. **Bridge reliability**: the study localized three distinct failure modes (no-emergence,
-   rule forgetting, bridge instability). Interventions to test, one at a time:
-   higher `state_dim` with a *trainable* projection constraint; longer interleaved budgets;
-   bridge-stabilizing regularization (e.g., freeze GNN during phase 2); intermediate delays
-   (0→1→2→3). Target: ≥ 90% seed success (pre-registered threshold, currently best 2/3).
-2. **Seed-0-style failures**: compare phase-2 state trajectories of successful vs failed
-   seeds; test whether bridge discovery correlates with an observable early signal (e.g.,
-   intact-vs-reset divergence) that could trigger curriculum adjustment.
+1. ~~Bridge reliability~~ — **achieved**: D800 (3/3, both capabilities preserved) and
+   C_frozen (3/3, immediate rule lost in 2/3) meet the pre-registered ≥ 90% criterion.
+   D800 (interleaved, 800 episodes) is the recommended schedule.
+2. **Scale-generalization anomaly**: the unseen-size (n=200) probe returns chance in some
+   successful runs and 1.000 in others — investigate the readout's node-count dependence
+   (sum-pooled features scale with N; the attention readout may not be N-invariant).
 3. **State-content analysis**: partial resets preserving vs destroying the answer, and
    linear decodability of the answer from the 8-dim state — what exactly does the state carry?
 4. **Delay scaling**: successful seeds already generalize to 10–30 steps untrained; test
    curricula with increasing delays to push the working-memory horizon deliberately.
-5. Only after reliability: richer relations (paths, multi-hop), multiple retained items,
-   then the Level-3 agenda (evidence integration, rule revision).
+5. Only after reliability holds at scale: richer relations (paths, multi-hop), multiple
+   retained items, then the Level-3 agenda (evidence integration, rule revision).
 
-## 7. Reproduction
+## 8. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
 used, per-seed `seed_summary.json`, raw CSVs (`metrics.csv`, `graph_locus.csv`,
@@ -279,3 +344,5 @@ used, per-seed `seed_summary.json`, raw CSVs (`metrics.csv`, `graph_locus.csv`,
 metadata, and an aggregated `summary.json`. Commands: `python scripts/run_experiment.py
 --config <cfg> [--graph <family>]`, `python scripts/run_curriculum_study.py --config
 configs/experiments/curriculum_study.yaml`. 117 unit tests: `pytest`.
+
+
