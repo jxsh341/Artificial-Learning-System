@@ -470,6 +470,133 @@ sharper target than "bridge never emerged".
 6. Only after reliability holds at scale: richer relations (paths, multi-hop), multiple
    retained items, then the Level-3 agenda (evidence integration, rule revision).
 
+### Following the H5 result (§8b): next mechanistic steps
+
+1. **Protect the immediate rule through coupling + joint training**: Treatment A on
+   C_staged s1 met 5/6 criteria; the failure was immediate erosion in stage 4. Interleave
+   a low-rate immediate rehearsal during/after coupling, or freeze the immediate readout
+   route while the delayed route trains — pre-register the same rubric.
+2. **Why did the D-int s0 readout path fail to converge** (with identical pre-state
+   geometry)? Longer/reshaped readout-only training; inspect whether the head's input
+   route (C·s vs the D(z) direct path from the generic blank) is degenerate for that
+   seed.
+3. **Reliability track (unchanged)**: additional D800 seeds for the population bound;
+   D800 reference configuration stays frozen.
+
+---
+
+## 8b. H5 — state-to-readout coupling hypothesis (pre-registered design)
+
+**Formal statement (user-specified):** *A major failure mode in delayed-task acquisition
+occurs when the SSM develops an answer-bearing internal state without establishing an
+effective functional connection between that state and the output readout. Selectively
+improving this coupling during bridge training should rescue delayed-task performance
+without requiring the underlying state representation to be relearned.*
+
+Claim language for the motivating finding (per §7): in certain failed runs the correct
+answer remained perfectly decodable from the persistent state, yet state substitution
+failed to influence the output — a dissociation between information *accessibility* and
+*functional use* in the tested architecture. FAILED seeds are not yet said to have a
+"readout defect" (H5 is the hypothesis tested here); the state is not yet called an
+independent memory system.
+
+**Starting points (phenotype iii):** base-study checkpoints
+`curriculum/D_interleaved/seed_000` and `curriculum/C_staged/seed_001` (delayed 0.48/0.48,
+immediate rule intact, answer decode = 1.000 at all points, substitution ≈ chance).
+Reference configuration: D800 (`configs/experiments/d800_interleaved.yaml`), unchanged —
+no new modules, no state dimensionality change.
+
+**Stages per arm (400 total episodes each):**
+
+| Arm | Stage 3 (coupling, 200 ep) | Stage 4 (restore, 200 ep) |
+|---|---|---|
+| `Control` | nothing frozen — normal interleaved (persistence check) | normal interleaved |
+| `Treatment A` | GNN + pooling + SSM state-generation (A_raw, B) frozen; SSM output path (C, D) + head train on **correctly labelled** delayed trials | fully unfrozen, normal interleaved |
+| `Treatment B` | identical to A, but state–target association broken (labels shuffled, same instances/inputs) | fully unfrozen, normal interleaved |
+
+**Pre-registered success criteria (all required):**
+
+| Metric | Required outcome |
+|---|---|
+| immediate accuracy | ≥ 0.90 |
+| delayed accuracy (intact) | ≥ 0.90 |
+| substitution, correct-state (same answer) | ≥ 0.90 |
+| substitution, different answer | prediction follows donated answer |
+| substitution, zero state | returns to chance |
+| substitution, shuffled state | returns to chance |
+| state representation | decode stays 1.000; answer margin/state geometry consistent with the starting sparse-signed phenotype |
+
+Substitution conditions are decisive: improved delayed accuracy without causal dependence
+on the donated state has not demonstrated the mechanism. Measured before and after the
+intervention: decode accuracies, substitution battery, answer-class margin (own vs
+other-class centroid distance), state norms, logit margins.
+
+**Pre-registered outcome taxonomy:** (A) successful rescue → supports H5; (B) decodability
+persists, rescue fails → failure involves more than insufficient readout training →
+investigate state geometry and readout functional capacity; (C) delayed improves but
+immediate deteriorates → coupling competes with rule retention even with GNN/SSM-input
+frozen.
+
+### Results (`results/coupling_rescue/`, `scripts/run_coupling_rescue.py`)
+
+End-of-intervention battery (200 test instances; stage-3 boundary additionally probed
+with the quick immediate/delayed probes, `training_probes.csv`):
+
+| run | imm | delayed | subst same | subst diff→follows | zero | shuffled | decode (pre/post) |
+|---|---:|---:|---:|---:|---:|---:|---|
+| D-int s0 **control** | 0.520 | 0.480 | 0.48 | 0.52 | chance | chance | 1.0 / 0.45 |
+| D-int s0 **treat A** | 0.520 | **0.620** | **0.695** | 0.635 | chance | chance | 1.0 / 1.0 |
+| D-int s0 **treat B** | 0.525 | 0.480 | 0.48 | 0.52 | chance | chance | 1.0 / 0.45 |
+| C-st s1 **control** | 0.520 | 0.480 | 0.48 | 0.52 | chance | chance | 1.0 / 1.0 |
+| C-st s1 **treat A** | 0.520 | **1.000** | **1.000** | **1.000** | chance | 0.59 | 1.0 / 1.0 |
+| C-st s1 **treat B** | 0.570 | 0.480 | 0.48 | 0.52 | chance | chance | 1.0 / 0.46 |
+
+Stage-3 boundary (`training_probes.csv`): C-st s1 treat A reached **immediate 0.94,
+delayed 1.00** after readout-only training alone — both core criteria met at that point;
+D-int s0 treat A reached 1.00 / 0.52 (no delayed rescue). Substitution battery was then
+evaluated at the end (§8b stage 5).
+
+### Verdict per arm
+
+- **Treatment B (negative control) is clean**: identical training on scrambled
+  associations changed nothing (delayed 0.48, substitution chance) on both sources. The
+  treatment-A effects are therefore coupling-specific, not extra-training artifacts.
+- **Control arms**: phenotype persists in both sources (delayed 0.48, substitution dead);
+  vanilla continued training additionally eroded the immediate rule (0.84→0.52 on D s0).
+- **Treatment A on C_staged s1 — pre-registered outcome C, with H5's mechanism confirmed
+  at stage 3**: readout-only training on correctly labelled state-target pairs *directly*
+  established the missing functional connection (delayed 0.48→1.000; correct-state
+  substitution 1.000; different-answer donations followed at 1.000; zero/shuffled chance;
+  decode preserved; state norms within 3% of pre — the representation was NOT relearned).
+  After stage-4 joint training the delayed skill **retained** its causal reading, but
+  the immediate rule dropped 0.94→0.52 — the broader interference problem reproduces in
+  the most targeted setting only after coupling is established. 5 of 6 rubric criteria
+  met; the failure is the immediate-accuracy criterion only.
+- **Treatment A on D_interleaved s0 — partially informative (outcome B flavour)**:
+  delayed 0.62 and substitution 0.695/0.635 — directional improvements over control but
+  far below criteria. Decisive constraint: pre-intervention state geometry is
+  **indistinguishable** between the two sources (identical saturated code, margins,
+  drift: own-class-centroid 0.0008 vs 0.0212 for D s0; revision-blank drift 0.82 vs
+  0.48; decode 1.0 both) — yet one readout path converged and the other did not. The
+  differentiator lies outside the measured linear state geometry: in the readout path
+  parameters/optimisation. Logit margins post-intervention: C s1 A = 2.17 (confident,
+  coupled) vs D s0 A = 0.11 (weak).
+
+### Interpretation (bounded)
+
+In the tested phenotype-(iii) checkpoints, the existing readout path **can** learn to use
+already-encoded answer information (one of two sources), without any change to the state
+representation — supporting H5's rescuability claim for one source; its failure on the
+other source localises the residual cause outside the linear state geometry, and the
+immediate-rule degradation under joint training reproduces outcome C. The targeted
+language stands: *information accessibility and functional use of the persistent state
+are dissociable, and functional use is improvable by selective readout training in at
+least one of the tested failing runs.* No claim is made that the readout "defect" is
+exhaustively characterised; the D-int s0 readout path's convergence failure is an open
+mechanistic question (candidates: deeper readout-path dynamics through C/D interplay
+with the blank-graph shortcut, or an optimisation basin requiring longer/other-shaped
+readout training).
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`

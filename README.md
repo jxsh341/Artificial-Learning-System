@@ -101,6 +101,7 @@ markers disappear. Controls include:
 | The state carries the *answer*, not the evidence | held-out linear probe decodes the answer (1.000) at every trial point; instance features are absent from the state (own-class-centroid distance ≈ 1e-4 vs 0.38 cross-class); the code is sparse: exactly 3 of 8 dims flip sign between classes |
 | The state's content *causally* controls the prediction | state substitution: donors from other trials at the same computation point — same-answer substitution stays correct (1.000), different-answer donations are **followed** (1.000), zero state → chance, all on blank observations during the delay |
 | Decodability ≠ use: failures dissociate cleanly | 2 failed seeds carry a perfectly decodable answer in state yet behave at chance *and* fail every substitution control — answer content present but causally disconnected from the readout; failure modes split into not-computed / decays / present-but-unused |
+| The missing piece is learnable readout *coupling* (H5, supported in 1/2 sources) | readout-only training on labelled state–target pairs rescued delayed 0.48→1.000 with substitution following donated answers 1.000 — **with frozen state-generation and unchanged state geometry** (representation not relearned); scrambled-label control changed nothing; joint post-training preserved the coupled delay skill but eroded the immediate rule (outcome C) |
 
 **Scope caveats:** the state-reset result establishes *necessity of the state*, not a
 general working-memory faculty; results are 2–4 seeds per condition on one task family;
@@ -186,3 +187,6 @@ and seeds.
   see `scripts/run_size_sweep.py` outputs in `results/*/size_sweep/`.
 - State-content analysis (decodability / answer-vs-feature / substitution) complete on
   18 condition-seeds: `scripts/run_state_analysis.py`, results in `results/*/state_content/`.
+- H5 readout-coupling rescue run (3 arms × 2 phenotype-(iii) checkpoints, pre-registered
+  rubric): see `scripts/run_coupling_rescue.py`, `results/coupling_rescue/`;
+  report §8b.

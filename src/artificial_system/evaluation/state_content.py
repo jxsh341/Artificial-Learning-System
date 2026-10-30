@@ -63,6 +63,7 @@ def capture_trial_states(
     out_lists.update({f"delay_{t+1}": [] for t in range(delay)})
     out_lists["pre_response"] = []
     logits_all: list[Tensor] = []
+    margins: list[Tensor] = []
     for idxs in _chunks(len(dataset), batch_size):
         b = len(idxs)
         generic = observe_instances(
@@ -88,10 +89,12 @@ def capture_trial_states(
 
         logits, _, _ = model.step(generic, state)
         logits_all.append(logits.argmax(-1).cpu())
+        margins.append((logits.max(-1).values - logits.min(-1).values).detach().cpu())
     model.train()
     result = {k: torch.cat(v) for k, v in out_lists.items()}
     result["_prediction"] = torch.cat(logits_all)
     result["_label"] = dataset.labels
+    result["_margin"] = torch.cat(margins)
     return result
 
 
@@ -341,6 +344,7 @@ def run_state_content(
         model, dataset, delay, batch_size, marker_dim, generic_blank, seed
     )
     summary: dict = {"behavioural_accuracy": acc}
+    summary["mean_logit_margin"] = float(states["_margin"].mean())
     for pt, d in dec.items():
         summary[f"decode_{pt}"] = d["accuracy"]
         summary[f"decode_{pt}_baseline"] = d["majority_baseline"]
