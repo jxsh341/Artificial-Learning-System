@@ -94,7 +94,7 @@ markers disappear. Controls include:
 | The cue task is graph-independent | 15 graph perturbations (up to 75% edge/node removal) caused **zero** behavioural change — motivating the graph-dependent benchmark |
 | Message passing is necessary for relational answers | no-message-passing ablations at chance; degree-preserving relabeled control = 1.000; unseen graph size = 1.000 |
 | Identity features cause shortcut memorization | 400→10000 instances + weight decay never induced the rule; bare marker features did (test 1.000, unseen size 1.000) |
-| The SSM carries computed answers across delays — reliably | reliability interventions meet the pre-registered ≥ 90% criterion: interleaved-800 and GNN-frozen staged training both reach **3/3 seeds** with state reset → chance |
+| The SSM carries computed answers across delays — observed reliably | interventions meet the pre-registered *observed* criterion (≥ 90% success proportion in the sample; population rate not yet tightly bounded): interleaved-800 and GNN-frozen staged training both reach **3/3 seeds** with state reset → chance |
 | The retained state is flexible, not a rigid imprint | counterfactual probe: successful seeds update the answer on new evidence (incl. answer-flipping) = 1.000, ignore irrelevant input = 1.000 |
 | Working memory generalizes beyond the trained delay | successful seeds retain the computed answer perfectly to delays 10–30 (1–10× the trained delay 3) without training at those delays |
 | Mean aggregation oversquashes relational signals | sum aggregation fixed a hard propagation failure (0.58 → 0.81) |
@@ -102,8 +102,10 @@ markers disappear. Controls include:
 **Scope caveats:** the state-reset result establishes *necessity of the state*, not a
 general working-memory faculty; results are 2–4 seeds per condition on one task family;
 the reliability interventions (D800 interleaved and GNN-frozen staged training) both reach
-**3/3 seeds** and meet the pre-registered ≥ 90% criterion — D800 preserves both capabilities,
-while GNN-freezing sacrifices the immediate rule (readout forgetting).
+**3/3 seeds** and meet the pre-registered *observed* criterion (success proportion ≥ 90% in
+the sample) — D800 preserves both capabilities, while GNN-freezing sacrifices the immediate
+rule (readout forgetting). 3/3 does not tightly bound the *population* success rate
+(P(3/3 | p = 0.7) ≈ 0.34); additional seeds are an explicit open item.
 
 ---
 
@@ -168,8 +170,13 @@ and seeds.
   delayed-only 0/3, immediate-only 0/3 — with failure-mode taxonomy from
   intact-vs-reset trajectories, counterfactual probes, and computed-answer retention),
   and two **bridge-reliability interventions** — interleaved-800 and GNN-frozen staged
-  training — both reaching **3/3 seeds** against the pre-registered ≥ 90% criterion.
+  training — both reaching **3/3 seeds** against the pre-registered *observed* criterion
+  (≥ 90% success proportion in the sample; population rate not yet tightly bounded).
 - Reproducibility verified: `scripts/verify_reproducibility.py` regenerates all published
   metrics from committed checkpoints + configs (12/12 exact matches).
-- Open items: unseen-size (n=200) probe anomaly in some successful runs; state-content
-  analysis; delay scaling (see `TECHNICAL_REPORT.md` §7).
+- Open items: state-content analysis; additional D800 seeds for a tighter population
+  bound; delay scaling (see `TECHNICAL_REPORT.md` §7).
+- ~~Unseen-size anomaly~~ resolved: was an evaluation-protocol defect (generic blank not
+  threaded into the generalization probe). Corrected, all successful seeds generalize to
+  n=200 at 0.995–1.000, and the controlled size sweep (100→200, degree-matched) is flat —
+  see `scripts/run_size_sweep.py` outputs in `results/*/size_sweep/`.

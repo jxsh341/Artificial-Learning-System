@@ -250,16 +250,29 @@ def run_graph_generalization(
     unseen_size_dataset=None,
     delay: int = 0,
     batch_size: int = 16,
+    generic_blank=None,
 ) -> tuple[list[dict], dict]:
-    """Probe on unseen instances (test split) and unseen graph size."""
+    """Probe on unseen instances (test split) and unseen graph size.
+
+    ``generic_blank`` must match the training blank protocol (``blank_mode:
+    generic``): historically the unseen-size probe used the default
+    markers-cleared-instance blank, which put successful models off-distribution
+    and produced spurious "chance at n=200" readings (the §7 anomaly).
+    """
     marker_dim = int(test_dataset.metadata.get("config", {}).get("marker_dim", 2))
     rows: list[dict] = []
     summary: dict = {}
-    acc = probe_dataset(model, test_dataset, delay=delay, batch_size=batch_size, marker_dim=marker_dim)
+    acc = probe_dataset(
+        model, test_dataset, delay=delay, batch_size=batch_size,
+        marker_dim=marker_dim, generic_blank=generic_blank,
+    )
     rows.append({"split": "test_unseen_instances", "num_nodes": test_dataset.metadata["config"]["num_nodes"], "accuracy": acc["accuracy"]})
     summary["graph_generalization_unseen_instances"] = acc["accuracy"]
     if unseen_size_dataset is not None:
-        acc2 = probe_dataset(model, unseen_size_dataset, delay=delay, batch_size=batch_size)
+        acc2 = probe_dataset(
+            model, unseen_size_dataset, delay=delay, batch_size=batch_size,
+            generic_blank=generic_blank,
+        )
         rows.append({"split": "test_unseen_size", "num_nodes": unseen_size_dataset.metadata["config"]["num_nodes"], "accuracy": acc2["accuracy"]})
         summary["graph_generalization_unseen_size"] = acc2["accuracy"]
         summary["graph_generalization_size_gap"] = acc["accuracy"] - acc2["accuracy"]

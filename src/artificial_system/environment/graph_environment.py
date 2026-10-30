@@ -25,6 +25,25 @@ from artificial_system.environment.base import Environment
 IGNORE_INDEX = -100
 
 
+def make_generic_graph(num_nodes: int, feature_dim: int, seed: int) -> GraphData:
+    """The instance-independent blank graph for ``blank_mode: generic``:
+    one fixed connected topology, zero features, no markers."""
+    import networkx as nx
+
+    g = nx.gnp_random_graph(num_nodes, 0.05, seed=int(seed) + 99991)
+    if not nx.is_connected(g):
+        comps = [sorted(c) for c in nx.connected_components(g)]
+        for a, b in zip(comps, comps[1:]):
+            g.add_edge(a[0], b[0])
+    edges = list(g.edges())
+    edges = edges + [(v, u) for (u, v) in edges]
+    return GraphData(
+        node_features=torch.zeros(num_nodes, feature_dim),
+        edge_index=torch.tensor(edges, dtype=torch.long).t().contiguous(),
+        metadata={"blank": "generic"},
+    ).validate()
+
+
 class GraphClassificationEnvironment(Environment):
     def __init__(
         self,
@@ -56,21 +75,10 @@ class GraphClassificationEnvironment(Environment):
         self._trial_count = 0
         self._generic_graph: GraphData | None = None
         if self.blank_mode == "generic":
-            import networkx as nx
-
             n = self.dataset.graphs[0].num_nodes
-            g = nx.gnp_random_graph(n, 0.05, seed=int(seed) + 99991)
-            if not nx.is_connected(g):
-                comps = [sorted(c) for c in nx.connected_components(g)]
-                for a, b in zip(comps, comps[1:]):
-                    g.add_edge(a[0], b[0])
-            edges = list(g.edges())
-            edges = edges + [(v, u) for (u, v) in edges]
-            self._generic_graph = GraphData(
-                node_features=torch.zeros(n, self.dataset.graphs[0].node_feature_dim),
-                edge_index=torch.tensor(edges, dtype=torch.long).t().contiguous(),
-                metadata={"blank": "generic"},
-            ).validate()
+            self._generic_graph = make_generic_graph(
+                n, self.dataset.graphs[0].node_feature_dim, int(seed)
+            )
 
     # ------------------------------------------------------------------ API
 

@@ -154,9 +154,11 @@ construction (`graph_adj_delayed_generic`: train-acc flat at 0.50 — nothing sp
 | 2 | 1.000 | **1.000** | **1.000** | **1.000** | **0.480** |
 | 3 | 1.000 | **1.000** | **1.000** | **1.000** | **0.480** |
 
-\* seed 1's unseen-size probe returned 0.505 — the only successful seed where the size
-generalization probe did not track the seen-size accuracy; noted as an anomaly to re-check
-(probe uses the same model; the discrepancy is unexplained and should be re-run before any claim).
+\* seed 1's unseen-size probe returned 0.505 — since traced to the legacy probe's blank
+protocol mismatch (delay steps without the trained generic blank); corrected reading is
+**1.000** (`scripts/recompute_unseen_size.py`, §6). The 0.505/0.52 legacy values for seed 0
+are chance readings **of a failed seed under the mismatched protocol** and remain
+historical.
 
 M2 (GNN, no SSM) on the delayed task: 0.48–0.52 across all seeds — structurally cannot bridge.
 Without the curriculum (joint discovery, `graph_adj_delayed_generic`), zero progress in 300
@@ -199,7 +201,11 @@ Two interventions, tested separately (never combined), 3 seeds each:
 
 ### Intervention 1 — D800: interleaved training extended to 800 episodes
 
-`results/d800_interleaved/`: **3/3 seeds (100%)** — the pre-registered ≥ 90% criterion is met.
+`results/d800_interleaved/`: **3/3 seeds (100% observed)** — the pre-registered *observed*
+criterion (≥ 90% success proportion in the sample) is met. Statistical caveat: 3/3 does not
+establish that the population success probability exceeds 90% (if p = 0.9, P(3/3) = 0.73;
+if p = 0.7, P(3/3) = 0.34 — weak evidence against lower rates). Additional seeds are
+required for a tighter bound; see §7.
 
 | seed | trajectory (delayed intact/reset) | outcome |
 |---|---|---|
@@ -208,8 +214,8 @@ Two interventions, tested separately (never combined), 3 seeds each:
 | 2 | **1.00** from episode 100 | early emergence, stable |
 
 State-reset dissociation holds in all seeds (intact 1.000, reset 0.48–0.52); immediate rule
-preserved everywhere (1.000); unseen-size 1.000 on seed 2, 0.505 on seeds 0–1 (anomaly, see
-below).
+preserved everywhere (1.000); legacy unseen-size readings were 0.505 on seeds 0–1 — since
+traced to the probe blank-protocol defect and corrected to 1.000 (see below).
 
 ### Intervention 2 — C_frozen: GNN frozen during the delayed phase (400-episode budget)
 
@@ -239,10 +245,41 @@ immediate skill (2/3 seeds); **D800 dominates** — 3/3 on both capabilities wit
 | **D interleaved** | **800** | **3/3** | **3/3** |
 | **C staged, GNN frozen in phase 2** | 400 | **3/3** | 1/3 |
 
-**Open anomaly**: the unseen-size (n=200) probe is inconsistent — 0.505 in some successful
-runs, 1.000 in others (also inverted under C_frozen). The seen-size performance is always
-1.000. This is a scale-generalization weakness of the current readout (sum-pooled features
-scale with node count) and should be investigated before claiming size generalization.
+**Resolved defect, not a model property**: the unseen-size (n=200) probe in
+`run_graph_generalization` fed delay steps in the *markers-cleared-instance* blank format,
+while training used the **generic blank graph** — a protocol mismatch that read as "chance"
+in successful runs (`scripts/recompute_unseen_size.py`; JSON at
+`results/curriculum_study/unseen_size_corrected.json`). Under the training-consistent
+protocol all successful seeds score at ceiling:
+
+| run | legacy probe | corrected (generic blank) |
+|---|---:|---:|
+| C_staged seed 2 | 1.000 | 1.000 |
+| D_interleaved seed 1 | 0.505 | **1.000** |
+| D_interleaved seed 2 | 1.000 | 1.000 |
+| D800 seeds 0–2 | 0.505 / 0.505 / 1.000 | **1.000 / 1.000 / 1.000** |
+| C_frozen seeds 0–2 | 0.895 / 1.000 / 0.495 | **1.000 / 1.000 / 0.995** |
+
+The matching defect is fixed at the source (the probe now threads `generic_blank` through,
+as training does), with a regression test.
+
+### Controlled size sweep (`scripts/run_size_sweep.py`, no retraining)
+
+Sizes 100→130→160→200 with node count isolated from mean degree (density fixed vs
+density ∝ 100/N), 2 independent instance sets × 200 instances per (size, mode), evaluation
+under the corrected protocol. **No degradation anywhere**:
+
+| | immediate | delayed intact | delayed reset |
+|---|---|---|---|
+| D800, all sizes/modes | 1.000 | 1.000 (min 0.995) | ≈ 0.50 |
+| C_frozen, all sizes/modes | ≈ 0.65–0.69 (flat) | 0.995–1.000 | ≈ 0.50 |
+
+D800 generalizes to unseen graph sizes perfectly under both density regimes; activation
+statistics (pooled-graph ‖z‖ 13.9→11.9 only at the degree-doubled n=200 fixed-density
+setting, attention marker share 0.94→0.88) show mild degree dependence of the sum-aggregated
+representation that the attention readout absorbs — behaviour is flat. C_frozen's immediate
+impairment is size-independent (readout forgetting, not scale sensitivity). Size
+generalization is now safely claimable for successful runs.
 
 ### Interpretation
 
@@ -316,24 +353,37 @@ bridge emerges within 50–200 delayed episodes once the rule exists, but is ini
 unstable; (iv) one seed (0) never discovered the bridge under any schedule — an
 initialization/optimization sensitivity that remains the main open reliability problem.
 
-Pre-registered criterion (≥ 90% seed success) is **not yet met** by any condition (best:
-2/3).
+Pre-registered criterion (observed success proportion ≥ 90%) is **not yet met** by any
+condition of the base study (best: 2/3). Note: observed proportions are weak evidence about
+the population success rate — the reliability interventions in §6 address this with
+additional seeds and a tighter criterion interpretation.
 
 ---
 
 ## 7. Next steps (in order)
 
-1. ~~Bridge reliability~~ — **achieved**: D800 (3/3, both capabilities preserved) and
-   C_frozen (3/3, immediate rule lost in 2/3) meet the pre-registered ≥ 90% criterion.
-   D800 (interleaved, 800 episodes) is the recommended schedule.
-2. **Scale-generalization anomaly**: the unseen-size (n=200) probe returns chance in some
-   successful runs and 1.000 in others — investigate the readout's node-count dependence
-   (sum-pooled features scale with N; the attention readout may not be N-invariant).
-3. **State-content analysis**: partial resets preserving vs destroying the answer, and
-   linear decodability of the answer from the 8-dim state — what exactly does the state carry?
-4. **Delay scaling**: successful seeds already generalize to 10–30 steps untrained; test
+1. ~~Bridge reliability~~ — **achieved in observed samples**: D800 (3/3, both capabilities
+   preserved) and C_frozen (3/3, immediate rule lost in 2/3) meet the pre-registered
+   *observed* criterion (success proportion ≥ 90% in the sample). Statistical caveat:
+   3/3 does not bound the population rate tightly (P(3/3 | p=0.7) = 0.34); §7 item 6
+   adds seeds to tighten the estimate. D800 (interleaved, 800 episodes) is the
+   recommended schedule.
+2. ~~Scale-generalization anomaly~~ — **resolved as an evaluation defect**: the legacy
+   unseen-size probe used the wrong blank protocol during the delay (markers-cleared
+   instance instead of the trained generic blank). Corrected, every successful seed scores
+   0.995–1.000 at n=200, and the controlled size sweep (100→200, degree-matched and
+   density-fixed) is flat at 1.000 for D800. `run_graph_generalization` now threads the
+   generic blank through (regression-tested); recompute with `scripts/recompute_unseen_size.py`.
+3. **State-content analysis**: (A) linear decodability of the answer from the 8-dim state
+   at pre-presentation / post-presentation / mid-delay / pre-response; (B) same-answer
+   vs different-answer input clustering (answer encoded vs features retained);
+   (C) successful vs failed-seed state statistics (magnitude, stability, answer separation,
+   distractor sensitivity) on saved checkpoints + held-out probes only.
+4. **Statistical power**: add D800 seeds — 3/3 meets the pre-registered *observed*
+   proportion, but does not tightly bound the population success rate.
+5. **Delay scaling**: successful seeds already generalize to 10-30 steps untrained; test
    curricula with increasing delays to push the working-memory horizon deliberately.
-5. Only after reliability holds at scale: richer relations (paths, multi-hop), multiple
+6. Only after reliability holds at scale: richer relations (paths, multi-hop), multiple
    retained items, then the Level-3 agenda (evidence integration, rule revision).
 
 ## 8. Reproduction

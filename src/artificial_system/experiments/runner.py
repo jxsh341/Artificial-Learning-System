@@ -450,7 +450,8 @@ def run_graph_single(
 
     # ---- Generalization: unseen instances + unseen size ----
     rows, gen = graph_eval.run_graph_generalization(
-        model, test_ds, unseen_size_dataset=unseen_ds, delay=delay, batch_size=eval_batch
+        model, test_ds, unseen_size_dataset=unseen_ds, delay=delay, batch_size=eval_batch,
+        generic_blank=generic_blank,  # must match the trained blank protocol
     )
     logger.write_table("graph_generalization", rows)
     summary.update(gen)
@@ -695,7 +696,8 @@ def run_curriculum_condition(
         summary.update(cf)
 
     rows, gen = graph_eval.run_graph_generalization(
-        model, test_ds, unseen_size_dataset=unseen_ds, delay=delay, batch_size=eval_batch
+        model, test_ds, unseen_size_dataset=unseen_ds, delay=delay, batch_size=eval_batch,
+        generic_blank=generic_blank,  # must match the trained blank protocol
     )
     logger.write_table("graph_generalization", rows)
     summary.update(gen)
