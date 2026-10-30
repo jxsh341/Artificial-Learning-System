@@ -98,6 +98,9 @@ markers disappear. Controls include:
 | The retained state is flexible, not a rigid imprint | counterfactual probe: successful seeds update the answer on new evidence (incl. answer-flipping) = 1.000, ignore irrelevant input = 1.000 |
 | Working memory generalizes beyond the trained delay | successful seeds retain the computed answer perfectly to delays 10–30 (1–10× the trained delay 3) without training at those delays |
 | Mean aggregation oversquashes relational signals | sum aggregation fixed a hard propagation failure (0.58 → 0.81) |
+| The state carries the *answer*, not the evidence | held-out linear probe decodes the answer (1.000) at every trial point; instance features are absent from the state (own-class-centroid distance ≈ 1e-4 vs 0.38 cross-class); the code is sparse: exactly 3 of 8 dims flip sign between classes |
+| The state's content *causally* controls the prediction | state substitution: donors from other trials at the same computation point — same-answer substitution stays correct (1.000), different-answer donations are **followed** (1.000), zero state → chance, all on blank observations during the delay |
+| Decodability ≠ use: failures dissociate cleanly | 2 failed seeds carry a perfectly decodable answer in state yet behave at chance *and* fail every substitution control — answer content present but causally disconnected from the readout; failure modes split into not-computed / decays / present-but-unused |
 
 **Scope caveats:** the state-reset result establishes *necessity of the state*, not a
 general working-memory faculty; results are 2–4 seeds per condition on one task family;
@@ -174,9 +177,12 @@ and seeds.
   (≥ 90% success proportion in the sample; population rate not yet tightly bounded).
 - Reproducibility verified: `scripts/verify_reproducibility.py` regenerates all published
   metrics from committed checkpoints + configs (12/12 exact matches).
-- Open items: state-content analysis; additional D800 seeds for a tighter population
-  bound; delay scaling (see `TECHNICAL_REPORT.md` §7).
+- Open items: targeted interventions on the answer-present-but-unused failure phenotype;
+  additional D800 seeds for a tighter population bound; delay scaling (see
+  `TECHNICAL_REPORT.md` §8).
 - ~~Unseen-size anomaly~~ resolved: was an evaluation-protocol defect (generic blank not
   threaded into the generalization probe). Corrected, all successful seeds generalize to
   n=200 at 0.995–1.000, and the controlled size sweep (100→200, degree-matched) is flat —
   see `scripts/run_size_sweep.py` outputs in `results/*/size_sweep/`.
+- State-content analysis (decodability / answer-vs-feature / substitution) complete on
+  18 condition-seeds: `scripts/run_state_analysis.py`, results in `results/*/state_content/`.

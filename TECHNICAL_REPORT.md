@@ -190,6 +190,74 @@ graph-dependent claims rest on the adjacency benchmark only; (d) all results are
 
 ---
 
+## 5. Curriculum-scheduling study (Phase B–D) — run and complete
+
+`results/curriculum_study/` — 4 budget-matched conditions × 3 seeds × 400 episodes
+(optimizer steps matched; presentation counts differ by construction and are recorded).
+Frozen baseline: adjacency task, bare markers, sum aggregation, 2-layer GNN, `state_dim` 8,
+generic blanks, 2000 instances. Success = delayed test accuracy ≥ 0.9.
+
+| condition | success rate | delayed accs | immediate accs |
+|---|---:|---|---|
+| A immediate-only | 0/3 | 0.48–0.52 (chance) | 1.00 (sanity check) |
+| B delayed-only | **0/3** | 0.48–0.52 | 0.49–0.52 (rule never learned) |
+| C staged (200 imm + 200 del) | 1/3 | 0.52 / 0.48 / **1.000** | 0.52 / 1.00 / 1.00 |
+| D interleaved | **2/3** | 0.48 / **1.000** / **1.000** | 1.00 / 1.00 / 1.00 |
+
+(Reference: the earlier staged run with a *double* phase-2 budget — 200 + 400 episodes —
+succeeded 3/4 seeds, `graph_adj_delayed_curr`; bridge success depends on delayed-phase budget.)
+
+**Failure-mode taxonomy** (from the intact-vs-reset trajectories recorded every 100 episodes —
+Phase C):
+
+1. **Bridge never emerges** (seed 0 under every schedule): immediate rule learned (imm 1.00
+   throughout), delayed accuracy flat at chance — initialization sensitivity.
+2. **Catastrophic forgetting of the rule** (C seed 0): immediate 1.00 after phase 1 → 0.52
+   after 200 delay-only episodes — the rule must be rehearsed during the delayed phase.
+3. **Bridge instability**: C seed 1 reached delayed 1.00 at episode 300 with the rule intact,
+   then *lost* the bridge by episode 400; D seed 1 emerged (0.95 @ ep200), lost (ep300),
+   and *recovered* (1.00 @ ep400). Interleaving appears to both protect the rule and give
+   the bridge repeated opportunities to re-emerge.
+
+**Joint discovery is impossible in this setup**: B_delayed (400 episodes) never learned
+either capability (both flat at chance in every probe).
+
+### Counterfactual probe (Phase D) — all successful seeds, all conditions = 1.000
+
+| condition | meaning | result (3 successful seeds) |
+|---|---|---:|
+| `no_change` | same instance re-presented → retain | 1.000 |
+| `update` / `update_flipped` | new instance, answer must change | **1.000** |
+| `irrelevant` | blank revision cue → must NOT overwrite | 1.000 |
+
+The retained state is not a rigid imprint: the system updates its answer on genuinely new
+evidence (including answer-flipping evidence) and ignores non-informative input.
+
+### Computed-answer retention (successful seeds, per-seed)
+
+- C seed 2: 1.000 at delays 0–30, chance at 100
+- D seed 2: 1.000 at delays 0–30, chance at 100
+- D seed 1: 1.000 at delays 0–3, chance at 10
+
+Working memory of the computed answer spans **3–30 steps — 1–10× the trained delay (3)** —
+seed-dependent, without ever being trained at those longer delays.
+
+### Interpretation
+
+The curriculum effect is real but its mechanism is now precise: (i) joint discovery of rule
++ bridge fails outright; (ii) the rule must be learned first *and rehearsed* during bridge
+training (interleaving dominates staged-with-equal-budget under this budget); (iii) the
+bridge emerges within 50–200 delayed episodes once the rule exists, but is initially
+unstable; (iv) one seed (0) never discovered the bridge under any schedule — an
+initialization/optimization sensitivity that remains the main open reliability problem.
+
+Pre-registered criterion (observed success proportion ≥ 90%) is **not yet met** by any
+condition of the base study (best: 2/3). Note: observed proportions are weak evidence about
+the population success rate — the reliability interventions in §6 address this with
+additional seeds and a tighter criterion interpretation.
+
+---
+
 ## 6. Bridge-reliability experiments (single-variable interventions) — run and complete
 
 Pre-launch reproducibility milestone: `scripts/verify_reproducibility.py` reloads every
@@ -277,9 +345,13 @@ under the corrected protocol. **No degradation anywhere**:
 D800 generalizes to unseen graph sizes perfectly under both density regimes; activation
 statistics (pooled-graph ‖z‖ 13.9→11.9 only at the degree-doubled n=200 fixed-density
 setting, attention marker share 0.94→0.88) show mild degree dependence of the sum-aggregated
-representation that the attention readout absorbs — behaviour is flat. C_frozen's immediate
-impairment is size-independent (readout forgetting, not scale sensitivity). Size
-generalization is now safely claimable for successful runs.
+representation that the attention readout absorbs — behaviour is flat in the tested range.
+Scope: this establishes that **no behavioural failure was observed** at sizes 100–200 under
+either density regime in the tested checkpoints; it does not exclude scale-sensitive
+internal representations outside this range (activation statistics still vary with graph
+size). C_frozen's immediate impairment is size-independent (readout forgetting, not scale
+sensitivity). Size generalization is safely claimable for successful runs within the tested
+range.
 
 ### Interpretation
 
@@ -292,80 +364,92 @@ phases).
 
 ---
 
-## 5. Curriculum-scheduling study (Phase B–D) — run and complete
+## 7. State-content analysis — run and complete
 
-`results/curriculum_study/` — 4 budget-matched conditions × 3 seeds × 400 episodes
-(optimizer steps matched; presentation counts differ by construction and are recorded).
-Frozen baseline: adjacency task, bare markers, sum aggregation, 2-layer GNN, `state_dim` 8,
-generic blanks, 2000 instances. Success = delayed test accuracy ≥ 0.9.
+`scripts/run_state_analysis.py` (`results/*/state_content/`), on saved checkpoints of
+D800, C_frozen, and the base study — 18 condition-seeds, all held-out test instances,
+linear (ridge, 5-fold CV) probes. Answering: **what does the 8-dim state carry, and is
+that content the cause of the prediction?**
 
-| condition | success rate | delayed accs | immediate accs |
-|---|---:|---|---|
-| A immediate-only | 0/3 | 0.48–0.52 (chance) | 1.00 (sanity check) |
-| B delayed-only | **0/3** | 0.48–0.52 | 0.49–0.52 (rule never learned) |
-| C staged (200 imm + 200 del) | 1/3 | 0.52 / 0.48 / **1.000** | 0.52 / 1.00 / 1.00 |
-| D interleaved | **2/3** | 0.48 / **1.000** / **1.000** | 1.00 / 1.00 / 1.00 |
+### A. Answer decodability (held-out linear probe, vs majority baseline = 0.55)
 
-(Reference: the earlier staged run with a *double* phase-2 budget — 200 + 400 episodes —
-succeeded 3/4 seeds, `graph_adj_delayed_curr`; bridge success depends on delayed-phase budget.)
+| seeds | pre-info | post-presentation | mid/final delay | response point |
+|---|---:|---:|---:|---:|
+| all successful (6) | 0.45 (= baseline) | **1.000** | **1.000** | **1.000** |
+| A_immediate ×3 (rule learned, no bridge training) | 0.45 | 1.000 | 0.45–1.00 (seed-dependent decay) | 0.45–1.00 |
+| D seed 0, C_frozen-style failure C seed 1 | 0.45 | 1.000 | **1.000** | **1.000** |
+| B_delayed, C_staged seed 0 (rule never learned) | 0.45 | 0.45 (= baseline) | 0.45 | 0.45 |
 
-**Failure-mode taxonomy** (from the intact-vs-reset trajectories recorded every 100 episodes —
-Phase C):
+### B. Answer vs feature retention (`avf_*`)
 
-1. **Bridge never emerges** (seed 0 under every schedule): immediate rule learned (imm 1.00
-   throughout), delayed accuracy flat at chance — initialization sensitivity.
-2. **Catastrophic forgetting of the rule** (C seed 0): immediate 1.00 after phase 1 → 0.52
-   after 200 delay-only episodes — the rule must be rehearsed during the delayed phase.
-3. **Bridge instability**: C seed 1 reached delayed 1.00 at episode 300 with the rule intact,
-   then *lost* the bridge by episode 400; D seed 1 emerged (0.95 @ ep200), lost (ep300),
-   and *recovered* (1.00 @ ep400). Interleaving appears to both protect the rule and give
-   the bridge repeated opportunities to re-emerge.
+The state separates perfectly by answer class (cosine separation −2.0 for successful
+seeds) but carries **no detectable instance features**: same-answer states are
+indistinguishable from each other (own-class-centroid distance ≈ 1e-4 vs cross-class
+0.38), and nearest-neighbour same-label rate (1.000) is explained entirely by class
+clustering (chance 0.498). Direct inspection (200 instances/seed): the successful code
+is a **sparse signed pattern** — exactly 3 of 8 dims flip sign between classes (means
+±0.50, std 0), the other 5 dims saturate identically. The state stores the computed
+answer, not the evidence; decomposing features from it is not observed.
 
-**Joint discovery is impossible in this setup**: B_delayed (400 episodes) never learned
-either capability (both flat at chance in every probe).
+### C. Successful vs failed — the signature is not decodability, it is *use*
 
-### Counterfactual probe (Phase D) — all successful seeds, all conditions = 1.000
+The most informative result: **two failed seeds (D seed 0, C_staged seed 1) have a
+perfectly linearly decodable answer in their state at every capture point, yet produce
+chance behaviour and — decisively — fail every substitution control.** Comparison table
+(state-level):
 
-| condition | meaning | result (3 successful seeds) |
-|---|---|---:|
-| `no_change` | same instance re-presented → retain | 1.000 |
-| `update` / `update_flipped` | new instance, answer must change | **1.000** |
-| `irrelevant` | blank revision cue → must NOT overwrite | 1.000 |
+| group | decode (all points) | subst same-answer | subst diff-answer follows donated | subst zero |
+|---|---:|---:|---:|---:|
+| D800, C_frozen, base successes (9) | 1.000 | **1.000** | **1.000** | chance |
+| bridge-failed, answer retained (2: D seed 0, C seed 1) | 1.000 | 0.48–0.52 | 0.48–0.52 (chance) | chance |
+| immediate-only (A seeds) | post 1.000, delay 0.45–1.00 | chance | chance | chance |
+| rule never learned (B, C seed 0) | chance | chance | chance | chance |
 
-The retained state is not a rigid imprint: the system updates its answer on genuinely new
-evidence (including answer-flipping evidence) and ignores non-informative input.
+Also: failed retained-answer states saturate toward ±1 in *all* 8 dims with a residual
+answer margin of < 0.03 (own vs other-class centroid distances 0.0008 vs 0.0212), while
+successful states keep a large signed margin (0.0001 vs 0.38). "Answer present but
+saturated" reads as a success signature: the route the head reads must include the state
+answer code; decodability alone does not imply use — matching the caution that a linear
+probe establishes accessibility, not symbolic storage or causal use.
 
-### Computed-answer retention (successful seeds, per-seed)
+`drift_*` metrics: successful models move the state little under irrelevant blank input
+(blank-step drift 0.42–0.96) and far more at presentation (revision gain 2.5–6.0).
 
-- C seed 2: 1.000 at delays 0–30, chance at 100
-- D seed 2: 1.000 at delays 0–30, chance at 100
-- D seed 1: 1.000 at delays 0–3, chance at 10
+### D. Causal state substitution (`subst_*`)
 
-Working memory of the computed answer spans **3–30 steps — 1–10× the trained delay (3)** —
-seed-dependent, without ever being trained at those longer delays.
+After instance i's presentation, the carried state is replaced (donors from independent
+trials at the *same* computation point — in-distribution, norm ratio ≈ 1.0) and the
+delay finishes on generic blank observations, so the substituted state is the **only**
+instance information:
+
+- **same-answer substituted** (different instance, same label): prediction correct at
+  **1.000** in all 9 successful seeds — the identity of the presenting evidence is not
+  read; only the answer is.
+- **different-answer substituted**: prediction follows the **donated** answer at
+  **1.000** — direct causal proof that the (donated) state content controls the
+  prediction, not the presentation history (which pointed the other way).
+- **zero state**: chance (0.48–0.52) in every seed; **shuffled own states**: ≈ chance.
+- ALL failed seeds: every substitution condition ≈ chance-equivalent — their state
+  content, however decodable, does not reach the prediction.
 
 ### Interpretation
 
-The curriculum effect is real but its mechanism is now precise: (i) joint discovery of rule
-+ bridge fails outright; (ii) the rule must be learned first *and rehearsed* during bridge
-training (interleaving dominates staged-with-equal-budget under this budget); (iii) the
-bridge emerges within 50–200 delayed episodes once the rule exists, but is initially
-unstable; (iv) one seed (0) never discovered the bridge under any schedule — an
-initialization/optimization sensitivity that remains the main open reliability problem.
-
-Pre-registered criterion (observed success proportion ≥ 90%) is **not yet met** by any
-condition of the base study (best: 2/3). Note: observed proportions are weak evidence about
-the population success rate — the reliability interventions in §6 address this with
-additional seeds and a tighter criterion interpretation.
+The delayed-answer mechanism in this model class is: presentation computes a **sparse
+signed answer code in 3 state dims**; blank inputs leave it intact (small drift); the
+response head reads that code. Bridge failures decompose into exactly the three internal
+phenotypes (i) the answer never computed (B, C seed 0 — no immediate rule), (ii) the code
+decays during delay (A seeds), and (iii) the code present-but-saturated and causally
+disconnected from the readout (D seed 0, C_staged seed 1) — the third phenotype is a new,
+sharper target than "bridge never emerged".
 
 ---
 
-## 7. Next steps (in order)
+## 8. Next steps (in order)
 
 1. ~~Bridge reliability~~ — **achieved in observed samples**: D800 (3/3, both capabilities
    preserved) and C_frozen (3/3, immediate rule lost in 2/3) meet the pre-registered
    *observed* criterion (success proportion ≥ 90% in the sample). Statistical caveat:
-   3/3 does not bound the population rate tightly (P(3/3 | p=0.7) = 0.34); §7 item 6
+   3/3 does not bound the population rate tightly (P(3/3 | p=0.7) = 0.34); item 4
    adds seeds to tighten the estimate. D800 (interleaved, 800 episodes) is the
    recommended schedule.
 2. ~~Scale-generalization anomaly~~ — **resolved as an evaluation defect**: the legacy
@@ -374,11 +458,11 @@ additional seeds and a tighter criterion interpretation.
    0.995–1.000 at n=200, and the controlled size sweep (100→200, degree-matched and
    density-fixed) is flat at 1.000 for D800. `run_graph_generalization` now threads the
    generic blank through (regression-tested); recompute with `scripts/recompute_unseen_size.py`.
-3. **State-content analysis**: (A) linear decodability of the answer from the 8-dim state
-   at pre-presentation / post-presentation / mid-delay / pre-response; (B) same-answer
-   vs different-answer input clustering (answer encoded vs features retained);
-   (C) successful vs failed-seed state statistics (magnitude, stability, answer separation,
-   distractor sensitivity) on saved checkpoints + held-out probes only.
+3. ~~State-content analysis~~ — **run and complete** (§7): the state carries a sparse
+   signed 3-dim answer code, causally driving the prediction in successful seeds
+   (substitution evidence); failed seeds split into answer-not-computed, code-decay,
+   and code-present-but-unused phenotypes. Follow-ups: targeted interventions on the
+   phenotype-(iii) seeds (e.g., head/state coupling during bridge training).
 4. **Statistical power**: add D800 seeds — 3/3 meets the pre-registered *observed*
    proportion, but does not tightly bound the population success rate.
 5. **Delay scaling**: successful seeds already generalize to 10-30 steps untrained; test
@@ -386,7 +470,7 @@ additional seeds and a tighter criterion interpretation.
 6. Only after reliability holds at scale: richer relations (paths, multi-hop), multiple
    retained items, then the Level-3 agenda (evidence integration, rule revision).
 
-## 8. Reproduction
+## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
 used, per-seed `seed_summary.json`, raw CSVs (`metrics.csv`, `graph_locus.csv`,
