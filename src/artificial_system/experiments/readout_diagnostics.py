@@ -74,6 +74,7 @@ def _grad_of(loss: torch.Tensor, params) -> tuple[list[torch.Tensor], float]:
     return gs, float(sum(float(torch.linalg.vector_norm(g)) for g in gs))
 
 
+@torch.no_grad()
 def _probe(model, test_ds, delay, marker_dim, generic_blank):
     imm = graph_eval.probe_dataset(
         model, test_ds, delay=0, batch_size=32, marker_dim=marker_dim
@@ -85,10 +86,151 @@ def _probe(model, test_ds, delay, marker_dim, generic_blank):
     return imm, del_probe["delayed_intact"], del_probe["delayed_state_reset"]
 
 
-@torch.no_grad()
-def _zero_logits_margin(model, test_ds, delay, marker_dim, generic_blank) -> float:
-    """Response-step logit margins under zero state (for reference)."""
-    return float("nan")
+# ---------------------------------------------- encoder-level conflict (§8f)
+
+ENCODER_GROUPS = ("gnn", "pooling", "ssm_gen")
+
+
+def _group_params(model, group: str) -> list[torch.nn.Parameter]:
+    ssm = model.temporal_model
+    if group == "gnn":
+        return list(model.graph_encoder.parameters())
+    if group == "pooling":
+        return list(model.pooling.parameters())
+    if group == "ssm_gen":
+        return [ssm.A_raw, ssm.B.weight] if ssm.diagonal else [ssm.B.weight]
+    raise ValueError(group)
+
+
+def run_encoder_gradient_diagnostics(
+    cfg: dict,
+    datasets: dict,
+    ckpt: dict,
+    run_dir: Path,
+    seed: int,
+    episodes: int = 200,
+    probe_every: int = 5,
+    grad_clip: float = 1.0,
+) -> dict:
+    """§8f: per-group immediate-vs-delayed gradient conflict during the H7
+    stage-4 regime (frozen readout, joint episodes), on the *captured*
+    checkpoint of the failing source.
+
+    Per episode: delayed and immediate losses; per parameter group (gnn,
+    pooling, ssm_gen) the gradient norms ||g_del||, ||g_imm||, cosine
+    cos(g_del, g_imm), and the combined norm ||g_del + g_imm||; delayed logit
+    margins; behavioural probes every ``probe_every`` episodes (the cadence
+    that revealed the ~20-episode oscillation). The applied update alternates
+    delayed (even episodes) / immediate (odd) exactly like interleaved stage-4
+    training, with the readout frozen throughout.
+    """
+    import json
+
+    from artificial_system.models.gnn_ssm import build_model
+
+    run_dir = Path(run_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    task_cfg = cfg.get("task", {})
+    train_cfg = dict(cfg.get("training", {}))
+    delay = int(task_cfg.get("delay", 3))
+    marker_dim = int(task_cfg.get("marker_dim", 2))
+    batch = int(train_cfg.get("batch_size", 16))
+    seq_len = int(train_cfg.get("sequence_length", 32))
+
+    model = build_model(
+        cfg, node_feature_dim=int(cfg.get("graph", {}).get("node_feature_dim", 2)),
+        edge_feature_dim=0, num_actions=2, num_nodes=None,
+    )
+    model.load_state_dict(ckpt["model_state"])
+    # frozen readout, live representation (H7 stage-4 regime)
+    from artificial_system.experiments.coupling_rescue import set_trainables
+    set_trainables(model, "encoder_only")
+
+    trainable = [p for p in model.parameters() if p.requires_grad]
+    optimizer = torch.optim.Adam(trainable, lr=float(train_cfg.get("learning_rate", 1e-3)))
+
+    env_del = GraphClassificationEnvironment(datasets["train"], task_cfg, seed=seed * 2000 + 2)
+    imm_cfg = dict(task_cfg)
+    imm_cfg["delay"] = 0
+    env_imm = GraphClassificationEnvironment(datasets["train"], imm_cfg, seed=seed * 2000 + 1)
+    # continue the env RNG streams from the capture point (exact regime
+    # reconstruction when rng_states are present in the checkpoint)
+    rng_states = ckpt.get("rng_states")
+    if rng_states is not None:
+        env_del.rng.set_state(rng_states["env_del"])
+        env_imm.rng.set_state(rng_states["env_imm"])
+    generic_blank = None
+    if task_cfg.get("blank_mode", "no_markers") == "generic":
+        from artificial_system.environment.graph_environment import make_generic_graph
+        generic_blank = make_generic_graph(
+            int(task_cfg.get("num_nodes", 100)),
+            int(cfg.get("graph", {}).get("node_feature_dim", 2)),
+            seed * 2000 + 2,
+        )
+
+    groups = {g: _group_params(model, g) for g in ENCODER_GROUPS}
+
+    def group_grads(loss):
+        return torch.autograd.grad(loss, trainable, retain_graph=False, allow_unused=True)
+
+    rows: list[dict] = []
+    for ep in range(int(episodes)):
+        model.train()
+        for p in trainable:
+            p.grad = None
+
+        loss_d, margin_d, _ = _episode(model, env_del, batch, seq_len)
+        g_del = group_grads(loss_d)
+        loss_i, _, _ = _episode(model, env_imm, batch, seq_len)
+        g_imm = group_grads(loss_i)
+
+        row: dict = {"episode": ep, "loss_delayed": float(loss_d), "loss_immediate": float(loss_i),
+                     "margin_delayed": float(margin_d) if margin_d is not None else float("nan")}
+        for gname in ENCODER_GROUPS:
+            idx = [j for j, p in enumerate(trainable) if any(p is q for q in groups[gname])]
+            gd = [g_del[j] if g_del[j] is not None else torch.zeros_like(trainable[j]) for j in idx]
+            gi = [g_imm[j] if g_imm[j] is not None else torch.zeros_like(trainable[j]) for j in idx]
+            flat_d = torch.cat([g.flatten() for g in gd])
+            flat_i = torch.cat([g.flatten() for g in gi])
+            row[f"{gname}_gdel_norm"] = float(torch.linalg.vector_norm(flat_d))
+            row[f"{gname}_gimm_norm"] = float(torch.linalg.vector_norm(flat_i))
+            row[f"{gname}_cos"] = float(
+                torch.nn.functional.cosine_similarity(flat_d, flat_i, dim=0)
+            )
+            row[f"{gname}_combined_norm"] = float(torch.linalg.vector_norm(flat_d + flat_i))
+
+        # apply the stage-4-equivalent update: alternate delayed/immediate
+        which = g_del if ep % 2 == 0 else g_imm
+        for p, g in zip(trainable, which):
+            p.grad = (g.clone() if g is not None else torch.zeros_like(p))
+        if grad_clip > 0:
+            torch.nn.utils.clip_grad_norm_(trainable, grad_clip)
+        optimizer.step()
+
+        if ep % probe_every == 0 or ep == int(episodes) - 1:
+            imm, del_i, del_r = _probe(model, datasets["test"], delay, marker_dim, generic_blank)
+            row.update({"probe_immediate": imm, "probe_delayed_intact": del_i,
+                        "probe_delayed_reset": del_r})
+        else:
+            row.update({"probe_immediate": float("nan"), "probe_delayed_intact": float("nan"),
+                        "probe_delayed_reset": float("nan")})
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+    df.to_csv(run_dir / "encoder_gradients.csv", index=False)
+    tail = df.tail(len(df) // 4)
+    summary = {
+        "episodes": int(episodes),
+        "cos_mean": {g: float(df[f"{g}_cos"].mean()) for g in ENCODER_GROUPS},
+        "cos_tail_mean": {g: float(tail[f"{g}_cos"].mean()) for g in ENCODER_GROUPS},
+        "cos_frac_negative": {g: float((df[f"{g}_cos"] < 0).mean()) for g in ENCODER_GROUPS},
+        "gdel_norm_mean": {g: float(df[f"{g}_gdel_norm"].mean()) for g in ENCODER_GROUPS},
+        "gimm_norm_mean": {g: float(df[f"{g}_gimm_norm"].mean()) for g in ENCODER_GROUPS},
+        "delayed_final": float(df["probe_delayed_intact"].iloc[-1]),
+        "immediate_final": float(df["probe_immediate"].iloc[-1]),
+    }
+    (run_dir / "encoder_gradients_summary.json").write_text(json.dumps(summary, indent=2, default=float))
+    return summary
 
 
 def run_readout_diagnostics(

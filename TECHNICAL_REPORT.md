@@ -715,13 +715,95 @@ capturing the coupled readout at an up-phase and holding it static while the
 representation adapted. The intervention uses only schedule changes (probe-and-freeze +
 encoder-only restore); no architecture change, no added state dimensions.
 
-**D_int s0 remains unresolved — narrowed further.** Its coupled readout *can* be captured
-(episode 60, full up-phase behaviour) but is destroyed by any subsequent joint-training
-regime tested so far — including with the readout completely frozen. Combined with §8d,
-the D s0 failure is now localised to **conflict between the two objectives' gradients
-through the shared representation pathway** (encoder/pooling/state-generation), not the
-readout path and not the state content. Next registered diagnostic: per-group gradient
-cosine during stage 4 on this source.
+**D_int s0 — resolved by §8f/§8g (see below).** Its captured readout *can* be acquired
+(episode 60, full up-phase behaviour). The H7 destruction under joint training was an
+artifact of the **blocked** restore (100 consecutive immediate episodes, then 100
+delayed); with exact-RNG reconstruction the per-episode-alternating regime holds both
+capabilities, and the pre-registered single-variable intervention H7b (§8g) confirms it
+on the full rubric.
+
+---
+
+## 8f. Per-group encoder gradient conflict (pre-registered design)
+
+**Question:** where, in the shared representation pathway, do the immediate and delayed
+objectives conflict during the regime that destroyed D s0's captured solution?
+
+**Setup:** starts from the *captured* checkpoint of the H7 D-s0 run (preserved at
+`results/coupling_rescue_h7/D_interleaved_seed000__h7_capture_hold/captured_checkpoint.pt`;
+original never overwritten — the v1 run without checkpoint saving is kept as
+`*_v1_no_ckpt`). Regime = H7 stage 4 exactly: readout frozen, joint immediate+delayed
+episodes, representation trainable. The applied update alternates delayed/immediate as in
+interleaved training; both gradients are measured every episode.
+
+**Measured per parameter group (GNN / pooling / SSM state-generation), every episode:**
+‖g_del‖, ‖g_imm‖, cos(g_del, g_imm), ‖g_del + g_imm‖; delayed logit margins; behavioural
+probes every 5 episodes (the cadence that revealed the ~20-episode oscillation). Gradient
+alignment is compared against actual accuracy changes — conflict alone does not
+establish behavioural interference.
+
+**Pre-registered possibility taxonomy:** (A) consistent negative alignment → persistent
+representation-level conflict; (B) periodic sign changes → the representation cycles
+between compatibility with one objective and the other; (C) conflict concentrated in one
+group → targeted intervention candidate. No gradient surgery, separate optimisers, or
+architecture changes in this experiment.
+
+### §8f results — and a second protocol correction
+
+With exact RNG continuation from the captured state, the reconstructed stage-4 regime
+(per-episode alternating delayed/immediate updates, readout frozen) **does not destroy**
+D s0's captured solution: after an initial decay (0.48–0.52 for ~25 episodes) the delayed
+capability **re-locks and holds 1.000 from episode ~60 to 200** with a stable margin
+(≈ 0.30), immediate stays 1.000 throughout, and once the immediate objective is satisfied
+its gradient norms collapse to ≈ 0.003 (nothing left to push). Mean per-group gradient
+cosines are weakly positive (GNN +0.13, pooling +0.08, ssm-gen +0.04; ~30% of episodes
+negative) — **possibility A (consistent conflict) is rejected**; the cosine swings are
+episode-scale, not locked to the 20-episode behavioural period (**B** not supported at
+encoder level); gradient magnitude is concentrated in the GNN (‖g_del‖ ≈ 0.27 vs pooling
+0.013) but its alignment is not systematically negative (**C** partially — magnitude, not
+conflict, concentrates in the GNN).
+
+The reconstruction differs from the actual H7 stage 4 in one respect that turns out to be
+decisive: **the H7/H6/H5 restore stage alternated in blocked halves** (100 consecutive
+immediate episodes, then 100 delayed), while the reconstruction alternates per episode.
+Blocked phases let each objective's representation drift 100 steps away from the other's
+solution; alternating updates never let it drift far. **Second correction of the day:**
+the earlier "joint training destroys the captured solution" conclusion (H6 freeze arm, H7
+D s0) is a property of the *blocked* restore, not of joint adaptation per se.
+
+## 8g. H7b — alternating restore (pre-registered, single variable)
+
+**Hypothesis:** restoring with strict per-episode alternation (instead of blocked halves)
+from the captured state preserves both capabilities on both phenotype-iii sources.
+
+**Manipulation:** identical to `h7_capture_hold` except stage 4 applies immediate and
+delayed episodes in strict 1:1 alternation. Everything else — capture rule, frozen
+readout, budget, rubric — unchanged. Predictions: D s0 rescued (per §8f reconstruction);
+C s1 remains passing.
+
+### §8g results (`results/coupling_rescue_h7b/`)
+
+| source | capture | end imm | end delayed | subst same | follows | zero / shuffled | norm ratio | rubric |
+|---|---:|---:|---:|---:|---:|---|---:|---|
+| D_int s0 | ep 60 | **1.000** | **1.000** | 1.000 | 1.000 | chance / 0.54 | 0.87 | **ALL PASS** |
+| C_staged s1 | ep 5 | **1.000** | **1.000** | 1.000 | 1.000 | chance / 0.59 | 1.07 | **ALL PASS** |
+
+**The §8c milestone is met on BOTH phenotype-(iii) checkpoints**: ALS acquires
+persistent-state utilisation and preserves the pre-existing immediate rule through
+subsequent joint training, using only schedule-level changes (probe-and-freeze capture +
+per-episode alternating restore with a static readout). No architecture change, no added
+state dimensions, no new modules. The full intervention recipe: readout-only delayed
+training from the failing checkpoint, freeze at the first delayed ≥ 0.9 probe, then
+1:1 alternating joint episodes with the readout frozen while the representation adapts.
+
+### Research-history note (corrections preserved)
+
+Two corrections were made during this phase and are kept in the record: (1) the H5
+"rescued vs not-rescued" difference between sources was phase sampling of an oscillating
+coupled readout (§8d) — both sources acquire; (2) the "joint training destroys the
+captured solution" conclusion (H6 freeze arm, H7 D s0) was an artifact of the blocked
+restore schedule (§8f) — alternating joint adaptation preserves it. Both corrections were
+driven by diagnostics run *after* the attractive interpretations were recorded.
 
 ## 9. Reproduction
 

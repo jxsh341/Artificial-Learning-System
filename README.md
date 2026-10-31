@@ -103,7 +103,8 @@ markers disappear. Controls include:
 | Decodability ≠ use: failures dissociate cleanly | 2 failed seeds carry a perfectly decodable answer in state yet behave at chance *and* fail every substitution control — answer content present but causally disconnected from the readout; failure modes split into not-computed / decays / present-but-unused |
 | The missing piece is learnable readout *coupling* (H5) | readout-only training on labelled state–target pairs can establish the missing functional connection **with frozen state-generation and unchanged state geometry**; scrambled-label control changed nothing (H5); later corrected: the coupled solution is transient (see next row) |
 | The coupled readout is a transient, not an attractor (H6/H7 diagnostics) | delayed accuracy oscillates 1.000↔chance with a ~20-episode period; immediate-vs-delayed gradient cosine flips in anti-phase (±0.4) with the cycle; final-probe "rescue vs no-rescue" differences between sources were phase sampling (§8d) |
-| Acquire + retain is achievable with schedule-only changes (H7) | capture-and-hold (freeze at first delayed ≥ 0.9 probe, then joint training with frozen readout) meets **all** pre-registered criteria on one source — immediate 1.000, delayed 1.000, substitution follows 1.000, state representation preserved; the difficult source's captured solution is still destroyed by joint training (open, localised to representation-pathway gradient conflict) |
+| Acquire + retain is achievable with schedule-only changes (H7/H7b) | capture-and-hold with **per-episode alternating restore** (freeze at first delayed ≥ 0.9 probe; readout static while the representation adapts) meets **all** pre-registered criteria on **both** phenotype-iii sources — immediate 1.000, delayed 1.000, substitution follows 1.000, state representation preserved (norm ratio 0.87/1.07). The blocked-restore failure of H7 was a schedule artifact (§8f), corrected and preserved in the record |
+| Compatibility of shared-representation objectives | under alternating joint adaptation the two objectives co-exist (immediate gradients vanish once satisfied); blocked phases are what destroy co-acquired solutions — compatibility is achievable without architecture change |
 
 **Scope caveats:** the state-reset result establishes *necessity of the state*, not a
 general working-memory faculty; results are 2–4 seeds per condition on one task family;
@@ -112,6 +113,28 @@ the reliability interventions (D800 interleaved and GNN-frozen staged training) 
 the sample) — D800 preserves both capabilities, while GNN-freezing sacrifices the immediate
 rule (readout forgetting). 3/3 does not tightly bound the *population* success rate
 (P(3/3 | p = 0.7) ≈ 0.34); additional seeds are an explicit open item.
+
+---
+
+## Position statement (current)
+
+> The Artificial Learning System demonstrates separable stages of persistent-state
+> learning: information representation, functional utilisation, and capability retention.
+> Experiments identified cases where answer information was preserved in the recurrent
+> state but disconnected from the output pathway. Readout-only training transiently
+> restores functional utilisation; diagnostics then revealed oscillatory coupling rather
+> than stable convergence (both tested failing checkpoints acquire the coupled solution,
+> which re-appears and decays with a ~20-episode period). A pre-registered
+> capture-and-hold intervention with per-episode alternating joint adaptation subsequently
+> preserved both immediate and delayed capabilities through continued training in **both**
+> tested failing checkpoints — meeting the full pre-registered rubric (behaviour, causal
+> substitution battery, preserved state representation) — without architectural
+> modification. Schedule granularity (blocked vs alternating phases) was identified as
+> the determinant of whether co-adaptation preserves or destroys co-acquired solutions.
+
+Open items: population-level reliability (D800 reference; additional seeds); generality of
+capture-and-hold beyond the two tested phenotype-iii checkpoints; the mechanism of the
+~20-episode readout oscillation; delay scaling.
 
 ---
 

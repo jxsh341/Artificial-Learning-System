@@ -195,6 +195,13 @@ def _run_episodes(trainers, episodes: int, mode: str, rehearsal_every: int = 4,
         tr_imm.train(episodes // 2)
         tr_del.train(episodes - episodes // 2)
         return False, episodes, None
+    if mode == "alternating":
+        for ep in range(episodes):
+            if ep % 2 == 0:
+                tr_del.train(1)
+            else:
+                tr_imm.train(1)
+        return False, episodes, None
     if mode == "delayed_only":
         tr_del.train(episodes)
         return False, episodes, None
@@ -343,6 +350,14 @@ def run_coupling_arm(
             dict(interleaved4),
         ]
         freeze3, freeze4 = "readout_only", "encoder_only"
+    elif arm == "h7b_capture_alternate":
+        stages = [
+            {"mode": "delayed_capture", "episodes": h5_stage3["episodes"],
+             "probe_every": int(schedule_spec.get("capture_probe_every", 5)),
+             "threshold": float(schedule_spec.get("capture_threshold", 0.9))},
+            {"mode": "alternating", "episodes": int(interleaved4["episodes"])},
+        ]
+        freeze3, freeze4 = "readout_only", "encoder_only"
     else:
         raise ValueError(f"unknown arm {arm!r}")
 
@@ -362,6 +377,22 @@ def run_coupling_arm(
             )
         if captured and capture_info is None:
             capture_info = {"stage": i + 1, "episode_in_stage": used, **cap}
+            # preserve the captured state for follow-up diagnostics (never
+            # overwritten later — diagnostics must start from this exact point)
+            torch.save(
+                {
+                    "model_state": model.state_dict(),
+                    "config": cfg,
+                    "seed": seed,
+                    "arm": arm,
+                    "capture": capture_info,
+                    "rng_states": {
+                        "env_del": env_del.rng.get_state(),
+                        "env_imm": env_imm.rng.get_state(),
+                    },
+                },
+                Path(run_dir) / "captured_checkpoint.pt",
+            )
         ep_total += int(stage["episodes"])
         probe("post_stage" if i == 0 else "post_restore")
 
