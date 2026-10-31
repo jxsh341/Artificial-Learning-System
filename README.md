@@ -105,6 +105,7 @@ markers disappear. Controls include:
 | The coupled readout is a transient, not an attractor (H6/H7 diagnostics) | delayed accuracy oscillates 1.000↔chance with a ~20-episode period; immediate-vs-delayed gradient cosine flips in anti-phase (±0.4) with the cycle; final-probe "rescue vs no-rescue" differences between sources were phase sampling (§8d) |
 | Acquire + retain is achievable with schedule-only changes (H7/H7b) | capture-and-hold with **per-episode alternating restore** (freeze at first delayed ≥ 0.9 probe; readout static while the representation adapts) meets **all** pre-registered criteria on **both** phenotype-iii sources — immediate 1.000, delayed 1.000, substitution follows 1.000, state representation preserved (norm ratio 0.87/1.07). The blocked-restore failure of H7 was a schedule artifact (§8f), corrected and preserved in the record |
 | Compatibility of shared-representation objectives | under alternating joint adaptation the two objectives co-exist (immediate gradients vanish once satisfied); blocked phases are what destroy co-acquired solutions — compatibility is achievable without architecture change |
+| Capture-and-hold generalises to the class it targets, and only to it (§8i) | across **all nine** failing checkpoints in the frozen study: "present-but-unused" checkpoints (answer decodes at 1.000, behaviour at chance) capture and pass the full rubric **3/3** (95% CI 0.292–1.000); "never-computed" and "computed-then-decayed" checkpoints (answer absent at response) capture **0/6** and 5/6 stay at chance. Applicability is predictable *in advance* from a state probe, not from the schedule. One answer-absent checkpoint passed by a different route: with the readout exactly frozen, encoder adaptation created the state representation (decode 0.53 → 1.000) — flagged for replication |
 | D800 is a reliable reference baseline (population study, §8h) | 20 fresh seeds, frozen config: **20/20** delayed ≥ 0.9 and immediate 1.000 (95% CI 0.832–1.000); with the original 3 seeds kept separate, **23/23** (95% CI 0.852–1.000). State reset → chance (mean 0.500) in every seed. Unseen size 22/23 ≥ 0.985; the single exception (seed 19, 0.560) is an encoder scale/degree calibration issue — immediate and delayed fail together, reset stays at chance, and degree-matched n=200 restores 1.000 |
 
 **Scope caveats:** the state-reset result establishes *necessity of the state*, not a
@@ -127,21 +128,25 @@ rule (readout forgetting). 3/3 does not tightly bound the *population* success r
 > than stable convergence (both tested failing checkpoints acquire the coupled solution,
 > which re-appears and decays with a ~20-episode period). A pre-registered
 > capture-and-hold intervention with per-episode alternating joint adaptation subsequently
-> preserved both immediate and delayed capabilities through continued training in **both**
-> tested failing checkpoints — meeting the full pre-registered rubric (behaviour, causal
-> substitution battery, preserved state representation) — without architectural
-> modification. Schedule granularity (blocked vs alternating phases) was identified as
-> the determinant of whether co-adaptation preserves or destroys co-acquired solutions.
+> preserved both immediate and delayed capabilities through continued training — meeting the
+> full pre-registered rubric (behaviour, causal substitution battery, preserved state
+> representation) — without architectural modification, in **all three** checkpoints whose
+> state carries the answer at response time (3/3). Schedule granularity (blocked vs
+> alternating phases) was identified as the determinant of whether co-adaptation preserves
+> or destroys co-acquired solutions. Across all nine failing checkpoints, applicability was
+> predicted in advance by a state probe: checkpoints whose state does not carry the answer
+> at response time did not capture (0/6) and mostly stayed at chance (5/6), so the
+> intervention generalises exactly to the failure class it targets, not to all failures.
 > A separate 20-seed population run on the frozen D800 configuration bounds the reference
 > baseline: 20/20 seeds acquire the delayed capability (delayed ≥ 0.9) with immediate
 > accuracy 1.000 and state reset at chance (23/23 including the original seeds; 95% CI
 > 0.852–1.000), so the baseline is reliable within the tested regime rather than a
 > small-sample result.
 
-Open items: generality of capture-and-hold beyond the two rescued checkpoints (§8i
-pre-registered); the mechanism of the ~20-episode readout oscillation; delay scaling;
-whether the single population seed with an unseen-size gap reflects a general encoder
-scale sensitivity or a seed-specific calibration.
+Open items: the mechanism of the ~20-episode readout oscillation; delay scaling; the
+single population seed with an unseen-size gap (encoder edge-density calibration); and the
+unplanned "encoder-side acquisition" route seen once in `B_delayed:2` (readout frozen,
+representation created de novo) — replication across data-order seeds before any claim.
 
 ---
 
@@ -210,11 +215,16 @@ and seeds.
 - **D800 population reliability complete**: 20 fresh seeds on the frozen config, 20/20
   delayed ≥ 0.9 with immediate 1.000 (95% CI 0.832–1.000; 23/23 combined, CI 0.852–1.000),
   state reset at chance in every seed (`scripts/d800_population_analysis.py`, report §8h).
+- **H7b generalisation complete** (§8i): on the seven remaining failing checkpoints,
+  capture fires only where the state still carries the answer at response time; all three
+  such checkpoints in the study pass the full rubric (3/3, CI 0.292–1.000), the six
+  answer-absent ones capture 0/6 and mostly stay at chance. One answer-absent checkpoint
+  passed by encoder-side acquisition under a frozen readout (flagged for replication).
 - Reproducibility verified: `scripts/verify_reproducibility.py` regenerates all published
   metrics from committed checkpoints + configs (12/12 exact matches).
-- Open items: H7b generalisation on the seven remaining failing checkpoints (§8i,
-  pre-registered); the mechanism of the ~20-episode readout oscillation; delay scaling;
-  the single population seed with an unseen-size gap (encoder edge-density calibration).
+- Open items: the mechanism of the ~20-episode readout oscillation; delay scaling; the
+  single population seed with an unseen-size gap (encoder edge-density calibration); the
+  encoder-side acquisition route seen once in `B_delayed:2`.
 - ~~Unseen-size anomaly~~ resolved: was an evaluation-protocol defect (generic blank not
   threaded into the generalization probe). Corrected, and the controlled size sweep
   (100→200, degree-matched) is flat — see `scripts/run_size_sweep.py` outputs in

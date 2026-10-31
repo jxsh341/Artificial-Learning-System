@@ -862,7 +862,7 @@ disjoint seed lists (`--seeds`), each capped at 3 torch threads, logging to
 This removed both the silent-pipe problem (`| Select-Object -Last N` buffers until exit)
 and the ~2-seeds-per-45-min throughput limit.
 
-## 8i. H7b generalisation to new failing checkpoints (pre-registered, queued)
+## 8i. H7b generalisation to new failing checkpoints (complete)
 
 **Question:** does capture-and-hold with per-episode alternating restore work beyond the two
 checkpoints that motivated it?
@@ -887,6 +887,58 @@ as a rubric failure.
 
 **Not changed:** architecture, state dimensionality, optimiser, learning rate, budget,
 capture rule, or rubric. No gradient surgery, no separate optimisers.
+
+### §8i results (`results/coupling_rescue_h7b_generalisation/`)
+
+State-content classification of the same checkpoints was measured **independently of the
+intervention** (`scripts/run_state_analysis.py --results results/curriculum_study`; held-out
+linear probe of the answer at the response step, plus the causal substitution battery):
+
+| source | failure class | decode answer at response | capture | end imm | end delayed | subst follows | rubric |
+|---|---|---|---:|---|---:|---:|---:|---|
+| A_immediate s0 | computed then decayed | 0.465 | none | 1.000 | 0.480 | 0.520 | fail |
+| A_immediate s1 | computed then decayed | 0.450 | none | 1.000 | 0.520 | 0.480 | fail |
+| A_immediate s2 | **present but unused** | 1.000 | **ep 80** | 1.000 | **1.000** | **1.000** | **PASS** |
+| B_delayed s0 | never computed | 0.450 | none | 1.000 | 0.480 | 0.520 | fail |
+| B_delayed s1 | never computed | 0.450 | none | 1.000 | 0.480 | 0.520 | fail |
+| B_delayed s2 | never computed | 0.450 | none | 1.000 | **1.000** | **1.000** | **PASS\*** |
+| C_staged s0 | never computed | 0.450 | none | 1.000 | 0.480 | 0.520 | fail |
+
+Across all **nine** failing checkpoints in the frozen study (the seven above plus the two
+from §8g), the failure classes and outcomes are:
+
+| class | n | answer in state at response | captured | full rubric pass |
+|---|---:|---|---:|---:|
+| never computed | 4 | no (0.450 at every point) | 0/4 | 1/4 (\*) |
+| computed then decayed | 2 | no (1.000 at delay-1, 0.450 by delay-3) | 0/2 | 0/2 |
+| **present but unused** | **3** | **yes (1.000)** | **3/3** | **3/3** |
+
+**The intervention's applicability is set by state content, not by the schedule.** Where the
+answer survives to the response step in the recurrent state, capture succeeds and the full
+rubric passes **3/3** (exact 95% CI 0.292-1.000). Where it does not, readout-only training
+has nothing to couple: 6/6 such checkpoints failed to reach the capture threshold, and 5/6
+remained at chance after the full recipe. Overall pass rate on the nine failing checkpoints
+is 4/9 (0.137-0.788).
+
+**(\*) An unplanned second route, from `B_delayed` s2.** This checkpoint never captured
+(stage-3 delayed stuck at 0.52, state decode 0.53) yet passed the full rubric after the
+stage-4 phase: head and SSM C/D deltas were exactly 0.0, while GNN (3.60), pooling (3.26)
+and state-generation (0.82) moved, and the answer's decodability went **0.53 -> 1.000**
+(substitution follows 1.000). So encoder adaptation to a frozen, never-captured readout can
+*create* the state representation the readout needs. This is a distinct mechanism from
+capture-and-hold, observed in 1 of 6 answer-absent checkpoints; it needs replication across
+data-order seeds before any claim is attached to it, and it does not weaken the
+state-content rule above (the representation had to be created before the rubric could
+pass).
+
+**Bounded claims.** (1) For checkpoints whose state still carries the answer at response
+time, capture-and-hold with per-episode alternating restore passes the full pre-registered
+rubric 3/3 — this is the generalisation §8i asked for, and it is now demonstrated on three
+independent failure histories rather than two. (2) For checkpoints whose state does not
+carry the answer, the schedule is not the limiting factor: readout-level training cannot
+manufacture a representation that is not there, and 5/6 stay at chance. (3) Schedule-only
+interventions therefore do not generalise to all failures; they generalise exactly to the
+class they target, and that class is identifiable in advance by a state probe.
 
 ## 9. Reproduction
 

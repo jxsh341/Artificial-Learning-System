@@ -103,6 +103,18 @@ def main() -> int:
                 raise
             summaries_path.write_text(json.dumps(all_summaries, indent=2, default=float))
 
+    # Rebuild the aggregate from disk: with parallel or resumed runs, each
+    # process only knows the arms it ran itself, so the on-disk summaries are
+    # the source of truth for a complete summary.json.
+    for summary_file in sorted(out_dir.glob("*__*/arm_summary.json")):
+        tag_arm = summary_file.parent.name
+        if tag_arm not in all_summaries:
+            try:
+                all_summaries[tag_arm] = json.loads(summary_file.read_text())
+            except Exception:  # noqa: BLE001
+                continue
+    summaries_path.write_text(json.dumps(all_summaries, indent=2, default=float))
+
     print(f"\nresults: {out_dir}")
     return 1 if failures else 0
 
