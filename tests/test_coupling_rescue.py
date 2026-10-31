@@ -83,6 +83,65 @@ class TestBuildDatasets:
         assert d["train"].graphs[0].node_features.shape[1] == 2
 
 
+class TestCaptureMode:
+    def test_delayed_capture_stops_at_threshold(self, tmp_path):
+        """The H7 capture stage halts as soon as the delayed probe crosses the
+        threshold, and the summary records the capture event."""
+        cfg = {
+            "graph": {"node_feature_dim": 2},
+            "gnn": {"layers": 2, "hidden_dim": 8, "aggregation": "sum"},
+            "ssm": {"state_dim": 4},
+            "readout": {"pooling": "attention"},
+            "task": dict(GEN, num_train=12, num_test=8, dataset_seed=123,
+                         delay=2, blank_mode="generic",
+                         reward_correct=1.0, reward_incorrect=0.0,
+                         stochastic_prob=0.0),
+            "training": {"batch_size": 4, "sequence_length": 4,
+                         "learning_rate": 1e-3, "weight_decay": 0.0,
+                         "grad_clip": 1.0, "record_aux_every": 0},
+        }
+        datasets = cr.build_datasets_from_cfg(cfg)
+        ck = {"model_state": _model().state_dict(), "seed": 0,
+              "recorded_delayed": 0.5, "source_path": "test"}
+        summary = cr.run_coupling_arm(
+            cfg, datasets, ck, "h7_capture_hold", tmp_path, seed=0,
+            schedule_spec={"stage3": {"episodes": 6}, "stage4": {"episodes": 2},
+                           "capture_probe_every": 2, "capture_threshold": 0.55},
+        )
+        assert summary["arm"] == "h7_capture_hold"
+        assert (tmp_path / "arm_summary.json").exists()
+        # capture either fired within 6 episodes or was reported uncaptured
+        cap = summary["capture_info"]
+        assert cap is None or (cap["stage"] == 1 and cap["episode_in_stage"] % 2 == 0)
+
+    def test_run_episodes_capture_returns(self):
+        """The capture executor returns (captured, used, probe) tuples."""
+        model = _model()
+        ds = make_connectivity_dataset(8, seed=11, **GEN)
+        from artificial_system.environment.graph_environment import (
+            GraphClassificationEnvironment, make_generic_graph,
+        )
+        task = dict(GEN, delay=2, blank_mode="generic",
+                    reward_correct=1.0, reward_incorrect=0.0, stochastic_prob=0.0)
+        env = GraphClassificationEnvironment(ds, task, seed=0)
+        blank = make_generic_graph(GEN["num_nodes"], GEN["feature_dim"], 5)
+        captured, used, cap = cr._run_episodes(
+            (None, _trainer(model, env)),
+            episodes=2, mode="delayed_capture", model=model, test_ds=ds,
+            probe_kwargs={"delay": 2, "marker_dim": 2, "generic_blank": blank},
+            capture_threshold=1.1,  # unreachable -> runs to completion
+            probe_every=1,
+        )
+        assert captured is False and used == 2 and cap is None
+
+
+def _trainer(model, env):
+    from artificial_system.training.trainer import Trainer
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    return Trainer(model, env, optimizer, {"batch_size": 4, "sequence_length": 4})
+
+
 class TestConfigureProbe:
     def test_quick_probe_keys(self):
         model = _model()

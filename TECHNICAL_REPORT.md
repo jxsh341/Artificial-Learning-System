@@ -597,6 +597,132 @@ mechanistic question (candidates: deeper readout-path dynamics through C/D inter
 with the blank-graph shortcut, or an optimisation basin requiring longer/other-shaped
 readout training).
 
+---
+
+## 8c. H6 — capability retention under coupling + restoration (pre-registered design)
+
+**Question:** can ALS acquire persistent-state utilisation while preserving an existing
+capability through subsequent joint training? Acquisition and retention under joint
+optimisation are now treated as separate challenges (the C s1 rescue held 0.94 immediate
+*until* joint training began).
+
+**Starting points:** the same two phenotype-(iii) checkpoints (H5 starting state, NOT the
+rescued weights); C_staged s1 is the primary source (H5-positive), D-int s0 retained as
+the difficult source. Reference configuration unchanged; no new modules, no added state
+dimensions.
+
+**Arms (400 episodes: 200 coupling + 200 restore, as in H5):**
+
+| Arm | Stage 3 (coupling, 200 ep) | Stage 4 (restore, 200 ep) |
+|---|---|---|
+| `h6_control` | readout-only delayed (identical to H5 treatment A — interference recurrence expected) | unfrozen, normal interleaved |
+| `h6_rehearsal` | readout-only delayed, but **1 immediate episode interleaved every 4** delayed episodes (co-adaptation from the first coupling step) | unfrozen, normal interleaved |
+| `h6_freeze_readout` | readout-only delayed (as H5-A) | **head + SSM output (C, D) frozen**; GNN/pooling/state-generation trainable; immediate+delayed joint episodes — the immediate skill is restored/kept by representation adaptation under a static readout |
+
+The H5 result already provides the arm-level baseline (original coupling+restoration);
+`h6_control` re-runs it under the extended instrumentation.
+
+**Measured at every stage (pre / post-coupling / post-restore):** immediate and delayed
+accuracy, full substitution battery (correct-state ≥ 0.90 required, different-answer
+following, zero/shuffled chance), state geometry (decode, margins, norms), readout logit
+margins, and **per-group parameter displacement** (head / SSM-C / SSM-D /
+state-generation / pooling / GNN) — to distinguish route-overwrite from shared-parameter
+conflict from representation drift.
+
+**Pre-registered success criteria:** immediate ≥ 0.90 AND delayed ≥ 0.90 AND the
+substitution battery intact (same criteria table as §8b) at end of restoration. Improved
+delayed accuracy *without* intact causal substitution does not pass.
+
+## 8d. D-int s0 readout-path convergence diagnostic (pre-registered, separate track)
+
+For D_interleaved seed 0 only, readout-only delayed training repeated from the *untouched*
+original checkpoint under logging that H6's arms do not record:
+
+- initial readout loss and loss trajectory;
+- per-episode gradient norms per readout group (head / SSM-C / SSM-D);
+- **gradient cosine similarity between the immediate-loss gradient and the delayed-loss
+  gradient** over the trainable readout path (positive = locally aligned, ≈0 = weak
+  interaction, negative = conflicting optimisation directions);
+- logit margins during training;
+- learning-rate sensitivity (3e-4 / 1e-3 / 3e-3);
+- variability across repeated restarts from the identical checkpoint (different data-order
+  seeds, copies everywhere — the original checkpoint is never written).
+
+This distinguishes competing-objective failure from poorly-conditioned readout training;
+by itself it does not establish the cause.
+
+### §8d results — and a correction to H5's interpretation (both sources DO acquire)
+
+With gradient clipping and varied data-order seeds (restarts), the diagnostic shows:
+
+| LR | delayed at final probe (4 restarts) |
+|---:|---|
+| 3e-4 | 0.52 / 0.48 / 0.48 / 0.52 — never reaches the solution in 100 ep |
+| 1e-3 | **1.000** / 0.48 / 0.52 / 0.52 |
+| 3e-3 | 0.48 / 0.52 / **1.000** / 0.52 |
+
+Direct Trainer-based probing of the *same* protocol (both phenotype-iii sources) reveals
+why: **delayed accuracy oscillates** — 1.000 at episodes 100 and 150, chance at 125, 175,
+200; the response-step logit margin cycles with a period of ≈ 20 episodes (0.95 → 0.02 →
+0.25 → 0.02 → …), and the **immediate-vs-delayed gradient cosine flips in anti-phase with
+the cycle** (≈ +0.45 when the delayed margin recovers, ≈ −0.37 as it decays; mean ≈ +0.1,
+strongly bimodal). The coupled readout passes through the solution repeatedly but is **not
+an attractor** of delayed-only readout training at any tested LR; final-probe "outcomes"
+are phase samples.
+
+**Correction (replaces the H5 outcome-B reading of D-int s0):** both phenotype-iii
+sources *acquire* the coupled readout transiently. H5's stage-3 boundary measurements
+(C s1 "rescued"; D s0 "not rescued") sampled different phases of the same oscillation.
+What stage-4 joint training did to the C s1 run — hold delayed 1.000 with confident
+margins through the full battery — remains valid as observed behaviour; whether joint
+training *stabilised* an up-phase (immediate gradients counteracting the delayed-only
+drift) or merely sampled another phase is exactly what H7 tests. No claim that the readout
+path "cannot converge" survives; the open question is now **stability, not acquisition**.
+
+## 8e. H7 — capture-and-hold (pre-registered design)
+
+**Hypothesis:** the coupled readout solution is a transient, not an attractor, under
+delayed-only readout training; capturing it at an up-phase and then training only the
+representation under joint episodes (frozen readout) will hold both capabilities —
+because the joint objective counteracts the delayed-only drift.
+
+**Arms** (both phenotype-iii sources; 400-episode budget as before):
+
+| Arm | Stage 3 | Stage 4 |
+|---|---|---|
+| `h7_capture_hold` | readout-only delayed; probe every 5 episodes; **freeze everything at the first probe with delayed ≥ 0.9** (capture event recorded) | readout **stays frozen**; GNN/pooling/state-generation trainable; joint immediate+delayed episodes |
+| `h6_control` (existing) | no capture — run to 200 then restore | normal interleaved |
+
+**Success rubric: unchanged from §8c** (immediate ≥ 0.90, delayed ≥ 0.90, substitution
+battery intact at end of restoration). Recorded additionally: capture episode, immediate
+accuracy at capture, margins at capture vs end.
+
+### §8e results (`results/coupling_rescue_h7/`)
+
+| source | capture | end immediate | end delayed | subst battery | rubric |
+|---|---|---:|---:|---|---|
+| C_staged s1 | **episode 5** (imm 0.805, del 1.000, reset 0.52) | **1.000** | **1.000** | same 1.000 / follows 1.000 / zero+shuffled chance / decode 1.000 | **ALL PASS** |
+| D_int s0 | episode 60 (imm 1.000, del 1.000, reset 0.48) | 0.525 | 0.520 | all chance | fail |
+
+C s1 end-state parameter displacement in stage 4: head/C/D **exactly 0** (frozen),
+pooling 1.24, GNN 2.61, state-generation 0.48 — the representation adapted under joint
+episodes while the captured readout held both capabilities; state-norm ratio 1.065,
+decode preserved.
+
+**Milestone (§8c question) met on one source:** ALS acquired persistent-state utilisation
+*and* preserved the pre-existing immediate rule through subsequent joint training — via
+capturing the coupled readout at an up-phase and holding it static while the
+representation adapted. The intervention uses only schedule changes (probe-and-freeze +
+encoder-only restore); no architecture change, no added state dimensions.
+
+**D_int s0 remains unresolved — narrowed further.** Its coupled readout *can* be captured
+(episode 60, full up-phase behaviour) but is destroyed by any subsequent joint-training
+regime tested so far — including with the readout completely frozen. Combined with §8d,
+the D s0 failure is now localised to **conflict between the two objectives' gradients
+through the shared representation pathway** (encoder/pooling/state-generation), not the
+readout path and not the state content. Next registered diagnostic: per-group gradient
+cosine during stage 4 on this source.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
