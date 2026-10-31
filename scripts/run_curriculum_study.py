@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,8 +25,18 @@ def main() -> None:
     parser.add_argument("--seeds", type=int, nargs="*", default=None, help="override config seeds")
     args = parser.parse_args()
 
+    # Always announce the run up front and flush: when stdout is piped or
+    # redirected (e.g. `| Select-Object -Last 3`, `> run.log`) the default
+    # block buffering makes the process look silent for the whole run.
+    t0 = time.time()
+    print(f"[run_curriculum_study] config={args.config} seeds={args.seeds or 'config'}", flush=True)
+    print(f"[run_curriculum_study] started {time.strftime('%H:%M:%S')}", flush=True)
+
     exp_dir = run_curriculum_study(config_path=args.config, seeds=args.seeds)
-    print(f"Curriculum study complete. Results in: {exp_dir}")
+
+    mins = (time.time() - t0) / 60.0
+    print(f"[run_curriculum_study] finished in {mins:.1f} min", flush=True)
+    print(f"Curriculum study complete. Results in: {exp_dir}", flush=True)
 
 
 if __name__ == "__main__":

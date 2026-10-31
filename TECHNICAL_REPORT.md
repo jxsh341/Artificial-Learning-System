@@ -805,6 +805,23 @@ captured solution" conclusion (H6 freeze arm, H7 D s0) was an artifact of the bl
 restore schedule (§8f) — alternating joint adaptation preserves it. Both corrections were
 driven by diagnostics run *after* the attractive interpretations were recorded.
 
+---
+
+## 8h. D800 population reliability (pre-registered, running)
+
+**Workstream separation (user-directed):** population reliability runs independently of
+the H7b generalisation study; D800's configuration is frozen
+(`configs/experiments/d800_population.yaml` differs from
+`configs/experiments/d800_interleaved.yaml` only in experiment name and seed list).
+
+**Design:** 20 additional independent seeds (3-22); original seeds 0-2 kept **visible
+separately** (no silent pooling). Original per-seed success criterion: delayed accuracy
+>= 0.9. Immediate accuracy, state-reset, and unseen-size reported per seed. Observed
+success proportions reported with exact two-sided Clopper-Pearson 95% intervals
+(`scripts/d800_population_analysis.py`; bisection on the binomial CDF, verified against
+known values). Identical evaluation and checkpoint-reconstruction procedures; the
+resume-guarded runner is re-invoked until all seeds complete.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`

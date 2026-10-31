@@ -791,11 +791,16 @@ def run_curriculum_study(
                 except Exception:
                     pass
             log.info(f"[{cond_name}] seed={seed} -> {run_dir}")
-            cond_summaries.append(
-                run_curriculum_condition(
-                    cfg, datasets, seed, run_dir, cond_name, spec.get("schedule"), study_cfg,
-                    episodes_total_override=spec.get("episodes_total"),
-                )
+            summary = run_curriculum_condition(
+                cfg, datasets, seed, run_dir, cond_name, spec.get("schedule"), study_cfg,
+                episodes_total_override=spec.get("episodes_total"),
+            )
+            cond_summaries.append(summary)
+            log.info(
+                f"[{cond_name}] seed={seed} DONE "
+                f"delayed={summary.get('delayed_test_accuracy', float('nan')):.3f} "
+                f"immediate={summary.get('immediate_test_accuracy', float('nan')):.3f} "
+                f"reset={summary.get('delayed_state_reset', float('nan')):.3f}"
             )
         # resumable merge for condition dirs
         by_seed = {int(s["seed"]): s for s in cond_summaries}
