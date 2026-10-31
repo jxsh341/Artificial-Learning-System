@@ -822,6 +822,32 @@ success proportions reported with exact two-sided Clopper-Pearson 95% intervals
 known values). Identical evaluation and checkpoint-reconstruction procedures; the
 resume-guarded runner is re-invoked until all seeds complete.
 
+## 8i. H7b generalisation to new failing checkpoints (pre-registered, queued)
+
+**Question:** does capture-and-hold with per-episode alternating restore work beyond the two
+checkpoints that motivated it?
+
+**Source set (fixed before running, no phenotype selection):** every condition-seed in the
+frozen curriculum study (`results/curriculum_study/`) whose delayed accuracy is < 0.9,
+excluding the two already-used sources (`C_staged:1`, `D_interleaved:0`). That is
+`A_immediate` seeds 0/1/2, `B_delayed` seeds 0/1/2, and `C_staged` seed 0 — seven
+checkpoints spanning two distinct failure modes (immediate-only training with delayed at
+chance; delayed training that never acquired the capability at all).
+
+**Procedure:** identical to §8g — readout-only delayed training, freeze at the first
+delayed >= 0.9 probe, then 1:1 alternating joint episodes with the readout static. Full
+rubric, unchanged: immediate >= 0.9, delayed >= 0.9, same-answer substitution >= 0.9,
+different-answer substitution follows >= 0.9, zero/shuffled at chance, state representation
+preserved.
+
+**Reporting:** pass/fail per source plus the observed pass proportion with an exact
+Clopper-Pearson 95% interval. A source where the capture threshold is never reached is
+reported as *not capturable* (informative about state content, not about the schedule), not
+as a rubric failure.
+
+**Not changed:** architecture, state dimensionality, optimiser, learning rate, budget,
+capture rule, or rubric. No gradient surgery, no separate optimisers.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
