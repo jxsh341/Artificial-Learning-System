@@ -94,7 +94,7 @@ markers disappear. Controls include:
 | The cue task is graph-independent | 15 graph perturbations (up to 75% edge/node removal) caused **zero** behavioural change — motivating the graph-dependent benchmark |
 | Message passing is necessary for relational answers | no-message-passing ablations at chance; degree-preserving relabeled control = 1.000; unseen graph size = 1.000 |
 | Identity features cause shortcut memorization | 400→10000 instances + weight decay never induced the rule; bare marker features did (test 1.000, unseen size 1.000) |
-| The SSM carries computed answers across delays — observed reliably | interventions meet the pre-registered *observed* criterion (≥ 90% success proportion in the sample; population rate not yet tightly bounded): interleaved-800 and GNN-frozen staged training both reach **3/3 seeds** with state reset → chance |
+| The SSM carries computed answers across delays — observed reliably | interventions meet the pre-registered *observed* criterion (≥ 90% success proportion in the sample): interleaved-800 and GNN-frozen staged training both reach **3/3 seeds** with state reset → chance; the interleaved-800 (D800) rate is now bounded by a 20-seed population run (next row) |
 | The retained state is flexible, not a rigid imprint | counterfactual probe: successful seeds update the answer on new evidence (incl. answer-flipping) = 1.000, ignore irrelevant input = 1.000 |
 | Working memory generalizes beyond the trained delay | successful seeds retain the computed answer perfectly to delays 10–30 (1–10× the trained delay 3) without training at those delays |
 | Mean aggregation oversquashes relational signals | sum aggregation fixed a hard propagation failure (0.58 → 0.81) |
@@ -105,6 +105,7 @@ markers disappear. Controls include:
 | The coupled readout is a transient, not an attractor (H6/H7 diagnostics) | delayed accuracy oscillates 1.000↔chance with a ~20-episode period; immediate-vs-delayed gradient cosine flips in anti-phase (±0.4) with the cycle; final-probe "rescue vs no-rescue" differences between sources were phase sampling (§8d) |
 | Acquire + retain is achievable with schedule-only changes (H7/H7b) | capture-and-hold with **per-episode alternating restore** (freeze at first delayed ≥ 0.9 probe; readout static while the representation adapts) meets **all** pre-registered criteria on **both** phenotype-iii sources — immediate 1.000, delayed 1.000, substitution follows 1.000, state representation preserved (norm ratio 0.87/1.07). The blocked-restore failure of H7 was a schedule artifact (§8f), corrected and preserved in the record |
 | Compatibility of shared-representation objectives | under alternating joint adaptation the two objectives co-exist (immediate gradients vanish once satisfied); blocked phases are what destroy co-acquired solutions — compatibility is achievable without architecture change |
+| D800 is a reliable reference baseline (population study, §8h) | 20 fresh seeds, frozen config: **20/20** delayed ≥ 0.9 and immediate 1.000 (95% CI 0.832–1.000); with the original 3 seeds kept separate, **23/23** (95% CI 0.852–1.000). State reset → chance (mean 0.500) in every seed. Unseen size 22/23 ≥ 0.985; the single exception (seed 19, 0.560) is an encoder scale/degree calibration issue — immediate and delayed fail together, reset stays at chance, and degree-matched n=200 restores 1.000 |
 
 **Scope caveats:** the state-reset result establishes *necessity of the state*, not a
 general working-memory faculty; results are 2–4 seeds per condition on one task family;
@@ -131,10 +132,16 @@ rule (readout forgetting). 3/3 does not tightly bound the *population* success r
 > substitution battery, preserved state representation) — without architectural
 > modification. Schedule granularity (blocked vs alternating phases) was identified as
 > the determinant of whether co-adaptation preserves or destroys co-acquired solutions.
+> A separate 20-seed population run on the frozen D800 configuration bounds the reference
+> baseline: 20/20 seeds acquire the delayed capability (delayed ≥ 0.9) with immediate
+> accuracy 1.000 and state reset at chance (23/23 including the original seeds; 95% CI
+> 0.852–1.000), so the baseline is reliable within the tested regime rather than a
+> small-sample result.
 
-Open items: population-level reliability (D800 reference; additional seeds); generality of
-capture-and-hold beyond the two tested phenotype-iii checkpoints; the mechanism of the
-~20-episode readout oscillation; delay scaling.
+Open items: generality of capture-and-hold beyond the two rescued checkpoints (§8i
+pre-registered); the mechanism of the ~20-episode readout oscillation; delay scaling;
+whether the single population seed with an unseen-size gap reflects a general encoder
+scale sensitivity or a seed-specific calibration.
 
 ---
 
@@ -199,17 +206,21 @@ and seeds.
   delayed-only 0/3, immediate-only 0/3 — with failure-mode taxonomy from
   intact-vs-reset trajectories, counterfactual probes, and computed-answer retention),
   and two **bridge-reliability interventions** — interleaved-800 and GNN-frozen staged
-  training — both reaching **3/3 seeds** against the pre-registered *observed* criterion
-  (≥ 90% success proportion in the sample; population rate not yet tightly bounded).
+  training — both reaching **3/3 seeds** against the pre-registered *observed* criterion.
+- **D800 population reliability complete**: 20 fresh seeds on the frozen config, 20/20
+  delayed ≥ 0.9 with immediate 1.000 (95% CI 0.832–1.000; 23/23 combined, CI 0.852–1.000),
+  state reset at chance in every seed (`scripts/d800_population_analysis.py`, report §8h).
 - Reproducibility verified: `scripts/verify_reproducibility.py` regenerates all published
   metrics from committed checkpoints + configs (12/12 exact matches).
-- Open items: targeted interventions on the answer-present-but-unused failure phenotype;
-  additional D800 seeds for a tighter population bound; delay scaling (see
-  `TECHNICAL_REPORT.md` §8).
+- Open items: H7b generalisation on the seven remaining failing checkpoints (§8i,
+  pre-registered); the mechanism of the ~20-episode readout oscillation; delay scaling;
+  the single population seed with an unseen-size gap (encoder edge-density calibration).
 - ~~Unseen-size anomaly~~ resolved: was an evaluation-protocol defect (generic blank not
-  threaded into the generalization probe). Corrected, all successful seeds generalize to
-  n=200 at 0.995–1.000, and the controlled size sweep (100→200, degree-matched) is flat —
-  see `scripts/run_size_sweep.py` outputs in `results/*/size_sweep/`.
+  threaded into the generalization probe). Corrected, and the controlled size sweep
+  (100→200, degree-matched) is flat — see `scripts/run_size_sweep.py` outputs in
+  `results/*/size_sweep/`. In the 23-seed population, 22 generalize to n=200 at ≥ 0.985;
+  one seed (19, 0.560) has a genuine edge-density calibration gap that vanishes
+  (1.000) when mean degree is matched — see §8h.
 - State-content analysis (decodability / answer-vs-feature / substitution) complete on
   18 condition-seeds: `scripts/run_state_analysis.py`, results in `results/*/state_content/`.
 - H5 readout-coupling rescue run (3 arms × 2 phenotype-(iii) checkpoints, pre-registered

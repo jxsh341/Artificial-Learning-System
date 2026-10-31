@@ -807,7 +807,7 @@ driven by diagnostics run *after* the attractive interpretations were recorded.
 
 ---
 
-## 8h. D800 population reliability (pre-registered, running)
+## 8h. D800 population reliability (complete)
 
 **Workstream separation (user-directed):** population reliability runs independently of
 the H7b generalisation study; D800's configuration is frozen
@@ -821,6 +821,46 @@ success proportions reported with exact two-sided Clopper-Pearson 95% intervals
 (`scripts/d800_population_analysis.py`; bisection on the binomial CDF, verified against
 known values). Identical evaluation and checkpoint-reconstruction procedures; the
 resume-guarded runner is re-invoked until all seeds complete.
+
+### §8h results (`results/d800_population/`)
+
+| sample | seeds | delayed >= 0.9 | 95% CI (exact) | immediate | state reset |
+|---|---|---:|---|---:|---:|
+| original (kept visible) | 0-2 | 3/3 = 1.000 | 0.292-1.000 | 1.000 (min 1.000) | 0.493 |
+| population (new) | 3-22 | **20/20 = 1.000** | **0.832-1.000** | 1.000 (min 1.000) | 0.500 |
+| combined (power only) | 0-22 | 23/23 = 1.000 | 0.852-1.000 | 1.000 (min 1.000) | 0.500 |
+
+Every seed reaches delayed 1.000 and immediate 1.000, and in every seed the delayed
+state-reset probe returns to chance (0.48-0.52) — the capability is state-carried in all
+23, not just in the original three. Per-seed values: `reliability_summary.json`,
+`curriculum/D800_interleaved/seed_*/seed_summary.json`.
+
+**Unseen size (corrected protocol; all 23 recomputed with one identical procedure —
+`scripts/recompute_population_unseen_size.py`).** The original seeds' recorded values
+(0.505, 0.505, 1.000) include the known pre-fix probe artifact (missing generic blank);
+recomputed they are 1.000, 1.000, 1.000, consistent with §3.4. Of the 20 population seeds,
+19 are >= 0.985 and one (seed 19) is **0.560**. That seed is a genuine, reproducible
+outlier, and it is not a state-utilisation failure: its in-distribution delayed and
+immediate accuracies are both 1.000, and at n=200 its *immediate* accuracy degrades to the
+same level as delayed (0.555 vs 0.560) while state reset stays at chance (0.495). The
+failure tracks **mean degree, not node count**: at n=200 with density lowered to keep mean
+degree (0.02 instead of 0.04) the same checkpoint returns immediate 1.000 and delayed
+1.000; at n=300 (density 0.04) both fall to 0.535. So this checkpoint's encoder is
+calibrated to the trained edge-density regime — a scale-generalisation limitation of that
+seed, not a loss of persistent-state use.
+
+**Bounded interpretation.** Within the tested regime (n=100, density 0.04, delay 3, 2000
+training instances, 800 interleaved episodes), the frozen D800 configuration succeeds in
+20/20 fresh seeds and 23/23 overall; exact 95% lower bounds are 0.83 (n=20) and 0.85
+(n=23). This establishes D800 as a *reliable baseline in this regime*; it does not
+establish a schedule law beyond it (other sizes, densities, delays, and instance counts
+remain untested at population scale).
+
+**Operational note.** Long runs are now launched as N parallel single-process workers with
+disjoint seed lists (`--seeds`), each capped at 3 torch threads, logging to
+`results/d800_population/logs/w*.log`; the runner prints a flushed per-seed `DONE` line.
+This removed both the silent-pipe problem (`| Select-Object -Last N` buffers until exit)
+and the ~2-seeds-per-45-min throughput limit.
 
 ## 8i. H7b generalisation to new failing checkpoints (pre-registered, queued)
 
