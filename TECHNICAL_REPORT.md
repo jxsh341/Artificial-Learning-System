@@ -1064,6 +1064,96 @@ breaks as a *disconnection* (information present, use gone), not as forgetting.
 no longer carries the answer. (4) These are evaluation-only results on the trained
 checkpoints; no intervention was attempted at longer delays.
 
+## 8l. Geometry predicts rescue at delay 30 (two-stage, pre-registered)
+
+**Question.** §8k produced 12 checkpoints that fail behaviourally at delay 30 while their
+state still decodes the answer at 1.000. Two geometric explanations are possible and they
+make different predictions:
+
+- **rotation** — the carried state has rotated away from the fixed readout direction, so
+  the probe direction and the effective readout direction diverge;
+- **translation** — the directions still agree, but the state distribution has shifted
+  along the readout direction relative to the fixed decision boundary (equivalently, the
+  readout's threshold is displaced for the shrunken delay-30 state), so one class falls
+  entirely on the wrong side.
+
+These are separable in one coordinate system. Because the head is linear,
+`logit1 - logit0 = w_readout . s + c` exactly, so the readout boundary is the hyperplane
+`w_readout . s = -c`; the probe boundary is `w_probe . (s - mean) = 0`. We measure
+`w_probe` (ridge on the captured response-step states) and
+`w_readout = d(logit1 - logit0)/ds` at the mean state — the gradient includes the SSM
+output projection C and any head nonlinearity, so it is the *effective* readout direction
+in the same raw-state coordinates.
+
+**Pilot (disclosed, not counted as stage-A evidence).** Five checkpoints at delay 30
+(failing: original 0, population 6, 22; passing: original 1, population 5). Cosine was
+0.982–0.999 in both groups. The failing checkpoints classified one class at 1.000 and the
+other at 0.000, with the boundary 1.1–1.8 class-separations from the midpoint
+(`boundary_vs_mid` -1.67, +1.75) and probe–readout agreement 0.48–0.52; the passing
+checkpoints had `boundary_vs_mid` -0.45, -0.10 and agreement 1.000. The pilot therefore
+favours translation. Stage A tests this on all 23 checkpoints; the pilot is reported so the
+hypotheses are not presented as post-hoc.
+
+### Stage A — geometry before any intervention
+
+All 23 successful checkpoints at delays 3, 10 and 30, no parameter change
+(`scripts/run_readout_geometry.py`, `results/readout_geometry/`). Per checkpoint x delay:
+held-out probe decodability; cosine between probe and effective readout direction;
+per-class and overall readout accuracy; the normalised boundary position
+`boundary_vs_mid = -(t1+t0)/2 / (t1-t0)` where `t0,t1` are the class-mean margins (0 =
+boundary midway between the class means; |value| > 0.5 = one class entirely on the wrong
+side); signed and absolute margin; state norm; projections onto each direction; and
+probe–readout prediction agreement. Groups at delay 30 are defined by the already-published
+behavioural outcome (`delayed_intact >= 0.9`), and the recomputed behaviour is checked
+against `delay_scaling.csv`.
+
+**Pre-registered hypotheses (fixed before stage A runs):**
+
+- **A1 rotation:** failing delay-30 checkpoints show lower cosine than passing ones.
+  Rejected if failing-group cosine >= 0.90.
+- **A2 translation:** failing delay-30 checkpoints show |`boundary_vs_mid`| > 0.5 and
+  prediction agreement near chance, while passing checkpoints show |`boundary_vs_mid`| <=
+  0.5 and agreement near 1.0, **with cosine preserved**.
+- **A3 decay:** failing checkpoints show smaller state norm and smaller absolute margin
+  than passing ones. Rejected if the failing group is larger on either.
+
+**Stage-A prediction handed to stage B.** A failing checkpoint is predicted rescuable by
+readout-only retraining iff its information is present (`decode >= 0.95`) and its effective
+readout direction is aligned (`cos >= 0.90`). If A2 holds, all 12 failing checkpoints are
+predicted rescuable: a threshold displacement is exactly what readout-only training can
+correct, because the frozen encoder already writes a decodable state in the direction the
+readout uses.
+
+### Stage B — H7b at delay 30
+
+The 12 delay-30 failing checkpoints, same arm (`h7b_capture_alternate`), same budget and
+rubric as §8g/§8i, with `--delay 30` applied to the training environments, the capture
+probes, the state summaries and the final battery. **Delay 30 is preserved throughout**;
+the checkpoint is the original trained model, so this tests whether the intervention works
+*at the long delay*, not whether it works after returning to the training delay. Procedure
+unchanged: readout-only delayed training, capture at the first probe with delayed
+accuracy >= 0.9, freeze the readout, then 1:1 alternating joint episodes, then the full
+causal substitution battery.
+
+**Pre-registered outcome rule (fixed before running):**
+
+- **12/12 full rubric** → strong evidence that delay-induced disconnection is addressable
+  by the same intervention, i.e. the geometry prediction holds across the cohort;
+- **partial** → heterogeneous mechanisms or checkpoint-dependent susceptibility; compare
+  stage-A geometry (cosine, agreement, `boundary_vs_mid`, margin, norm) between rescued and
+  non-rescued checkpoints, with a statistic counted as predictive only if the two groups
+  are rank-separated without overlap (n = 12; exact counts, no p-values);
+- **0/12** → delay-induced disconnection is mechanistically different from the
+  training-induced phenotype;
+- **capture never fires** → readout-only coupling cannot access the retained representation
+  at delay 30, regardless of decodability.
+
+A checkpoint is never classified as rescued from accuracy alone: the full rubric requires
+immediate and delayed accuracy, same-answer substitution, different-answer following,
+zero/shuffled controls at chance, and preserved decodability. The geometry is measured
+before the intervention and in a separate results directory, so the intervention cannot
+contaminate the diagnostic.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`

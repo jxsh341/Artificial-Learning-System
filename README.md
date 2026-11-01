@@ -240,6 +240,9 @@ and seeds.
   Perfect retention on all three measures to delay 10 (23/23); at delay 30 information
   survives 23/23 while functional and behavioural retention survive 11/23 (bimodal,
   confidently wrong failures); at delay 100 information is lost (0/23).
+- **Delay-30 geometry + intervention (pre-registered, §8l)**: stage A measures probe–readout
+  geometry on all 23 checkpoints before any intervention; stage B applies H7b at delay 30
+  to the 12 failing checkpoints, with delay 30 preserved throughout.
 - Reproducibility verified: `scripts/verify_reproducibility.py` regenerates all published
   metrics from committed checkpoints + configs (12/12 exact matches).
 - Open items: the mechanism of the ~20-episode readout oscillation; the single population

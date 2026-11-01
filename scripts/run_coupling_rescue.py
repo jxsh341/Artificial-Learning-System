@@ -28,6 +28,7 @@ from artificial_system.experiments.runner import load_config
 from artificial_system.utils.checkpoints import load_checkpoint
 
 STUDY_RESULTS = ROOT / "results" / "curriculum_study"
+POPULATION_RESULTS = ROOT / "results" / "d800_population"
 REFERENCE_RESULTS = ROOT / "results" / "d800_interleaved"
 
 
@@ -35,8 +36,11 @@ def _source_paths(source_specs: list[str]) -> list[tuple[str, Path]]:
     out = []
     for spec in source_specs:
         cond, seed = spec.split(":")
-        # prefer the base study (phenotype iii), fall back to reference dir
+        # prefer the base study (phenotype iii), then the D800 population run,
+        # then the reference dir
         p = STUDY_RESULTS / "curriculum" / cond / f"seed_{int(seed):03d}" / "checkpoint.pt"
+        if not p.exists():
+            p = POPULATION_RESULTS / "curriculum" / cond / f"seed_{int(seed):03d}" / "checkpoint.pt"
         if not p.exists():
             p = REFERENCE_RESULTS / "curriculum" / cond / f"seed_{int(seed):03d}" / "checkpoint.pt"
         if not p.exists():
@@ -56,6 +60,11 @@ def main() -> int:
         "--data-seeds", type=int, nargs="*", default=None,
         help="vary training data order only (one run dir per data seed); "
              "model, checkpoint and evaluation stay keyed to the source seed",
+    )
+    ap.add_argument(
+        "--delay", type=int, default=None,
+        help="override the task delay for the whole intervention "
+             "(training, capture probes, state summaries, final battery)",
     )
     args = ap.parse_args()
 
@@ -83,9 +92,13 @@ def main() -> int:
         for arm in args.arms.split(","):
             for data_seed in data_seeds:
                 suffix = "" if data_seed is None else f"__d{int(data_seed):03d}"
+                if args.delay is not None:
+                    suffix += f"__t{int(args.delay)}"
                 run_dir = out_dir / f"{tag}__{arm}{suffix}"
                 guard = run_dir / "arm_summary.json"
                 label = arm if data_seed is None else f"{arm} (data seed {data_seed})"
+                if args.delay is not None:
+                    label += f" @ delay {args.delay}"
                 if guard.exists():
                     print(f"[skip] {tag} {label} (complete)")
                     continue
@@ -97,6 +110,7 @@ def main() -> int:
                     summary = cr.run_coupling_arm(
                         cfg, datasets, ck, arm, run_dir, seed=int(ck["seed"]),
                         schedule_spec=schedule_spec, data_seed=data_seed,
+                        delay_override=args.delay,
                     )
                     all_summaries[f"{tag}__{arm}{suffix}"] = summary
                     r = summary["rubric"]

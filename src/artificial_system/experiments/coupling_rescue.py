@@ -253,6 +253,7 @@ def run_coupling_arm(
     seed: int,
     schedule_spec: dict,
     data_seed: int | None = None,
+    delay_override: int | None = None,
 ) -> dict:
     """One arm on one starting checkpoint; writes run artifacts to
     ``run_dir`` and returns the summary.
@@ -261,6 +262,12 @@ def run_coupling_arm(
     streams). The model initialisation, the checkpoint, the evaluation
     datasets, the generic blank observation and the probe CV splits stay keyed
     to ``seed`` — so the manipulation is data order alone.
+
+    ``delay_override`` replaces the task delay for the whole intervention:
+    training environments, capture probes, state summaries and the final
+    battery all run at that delay.  The checkpoint itself is untouched, so this
+    tests whether the intervention works *at the longer delay*, not whether it
+    works after returning to the training delay.
     """
     import json
 
@@ -272,9 +279,10 @@ def run_coupling_arm(
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    task_cfg = cfg.get("task", {})
+    task_cfg = dict(cfg.get("task", {}))
     train_cfg = dict(cfg.get("training", {}))
-    delay = int(task_cfg.get("delay", 3))
+    delay = int(task_cfg.get("delay", 3) if delay_override is None else delay_override)
+    task_cfg["delay"] = delay
     marker_dim = int(task_cfg.get("marker_dim", 2))
 
     model = build_model(
@@ -394,6 +402,7 @@ def run_coupling_arm(
                     "config": cfg,
                     "seed": seed,
                     "arm": arm,
+                    "delay": int(delay),
                     "capture": capture_info,
                     "rng_states": {
                         "env_del": env_del.rng.get_state(),
@@ -439,6 +448,7 @@ def run_coupling_arm(
         "arm": arm,
         "seed": seed,
         "data_seed": int(seed if data_seed is None else data_seed),
+        "delay": int(delay),
         "source_checkpoint": ckpt.get("source_path"),
         "recorded_delayed_pre": ckpt.get("recorded_delayed"),
         "pre_analysis": pre_summary,
