@@ -252,13 +252,22 @@ def run_coupling_arm(
     run_dir: Path,
     seed: int,
     schedule_spec: dict,
+    data_seed: int | None = None,
 ) -> dict:
     """One arm on one starting checkpoint; writes run artifacts to
-    ``run_dir`` and returns the summary."""
+    ``run_dir`` and returns the summary.
+
+    ``data_seed`` overrides only the *training data order* (environment RNG
+    streams). The model initialisation, the checkpoint, the evaluation
+    datasets, the generic blank observation and the probe CV splits stay keyed
+    to ``seed`` — so the manipulation is data order alone.
+    """
     import json
 
     from artificial_system.models.gnn_ssm import build_model
     from artificial_system.training.trainer import Trainer
+
+    order_seed = int(seed if data_seed is None else data_seed)
 
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -284,15 +293,15 @@ def run_coupling_arm(
             seed * 2000 + 2,
         )
 
-    env_del = GraphClassificationEnvironment(datasets["train"], task_cfg, seed=seed * 2000 + 2)
+    env_del = GraphClassificationEnvironment(datasets["train"], task_cfg, seed=order_seed * 2000 + 2)
     imm_cfg = dict(task_cfg)
     imm_cfg["delay"] = 0
-    env_imm = GraphClassificationEnvironment(datasets["train"], imm_cfg, seed=seed * 2000 + 1)
+    env_imm = GraphClassificationEnvironment(datasets["train"], imm_cfg, seed=order_seed * 2000 + 1)
     # treatment B trains the readout on broken associations (same instances)
     env_shuf = None
     if arm == "treatment_b":
-        shuffled = relabel_dataset(datasets["train"], seed + 777)
-        env_shuf = GraphClassificationEnvironment(shuffled, task_cfg, seed=seed * 2000 + 2)
+        shuffled = relabel_dataset(datasets["train"], order_seed + 777)
+        env_shuf = GraphClassificationEnvironment(shuffled, task_cfg, seed=order_seed * 2000 + 2)
 
     optimizer = torch.optim.Adam(
         model.parameters(),
@@ -429,6 +438,7 @@ def run_coupling_arm(
     summary = {
         "arm": arm,
         "seed": seed,
+        "data_seed": int(seed if data_seed is None else data_seed),
         "source_checkpoint": ckpt.get("source_path"),
         "recorded_delayed_pre": ckpt.get("recorded_delayed"),
         "pre_analysis": pre_summary,

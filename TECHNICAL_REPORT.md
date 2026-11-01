@@ -940,6 +940,32 @@ manufacture a representation that is not there, and 5/6 stay at chance. (3) Sche
 interventions therefore do not generalise to all failures; they generalise exactly to the
 class they target, and that class is identifiable in advance by a state probe.
 
+## 8j. B2 replication — encoder-side acquisition (pre-registered, running)
+
+**Question:** is the `B_delayed` s2 result — a full-rubric pass with **no capture event**
+under an exactly frozen readout, in which the answer's decodability rose 0.53 -> 1.000 —
+a repeatable second acquisition route, or an isolated trajectory?
+
+**Design:** the same source checkpoint and the same arm (`h7b_capture_alternate`), with
+**only the training data order varied**. `run_coupling_arm` now takes an optional
+`data_seed` that re-keys the environment RNG streams (delayed and immediate) while the
+model initialisation, the checkpoint, the evaluation datasets, the generic blank
+observation and the probe CV splits all stay keyed to the source seed. Three independent
+data seeds (3, 4, 5); the original run (data order 2) is kept visible separately, not
+pooled.
+
+**Measured per replicate:** initial state decodability; head and SSM C/D parameter deltas
+(must remain exactly 0.0 for the "frozen readout" claim to hold); GNN / pooling /
+state-generation deltas (where the adaptation occurred); post-stage answer decodability;
+same-answer and different-answer substitution; zero and shuffled controls; immediate and
+delayed accuracy; whether a capture event occurred.
+
+**Interpretation (fixed before running):** 3/3 full-rubric passes → strong evidence for a
+second acquisition route in this setup; 2/3 → promising but data-order sensitive; 0-1/3 →
+the original result remains an isolated observation and the distinguishing feature of B2
+must be investigated. Functional outcomes decide; parameter displacement *magnitudes* are
+not required to match across seeds.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`

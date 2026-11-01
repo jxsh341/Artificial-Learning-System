@@ -52,6 +52,11 @@ def main() -> int:
     ap.add_argument("--sources", default="D_interleaved:0,C_staged:1")
     ap.add_argument("--results-dir", default="results/coupling_rescue")
     ap.add_argument("--probes-every", type=int, default=50)
+    ap.add_argument(
+        "--data-seeds", type=int, nargs="*", default=None,
+        help="vary training data order only (one run dir per data seed); "
+             "model, checkpoint and evaluation stay keyed to the source seed",
+    )
     args = ap.parse_args()
 
     cfg = load_config(ROOT / args.config)
@@ -72,36 +77,40 @@ def main() -> int:
     all_summaries: dict = json.loads(summaries_path.read_text()) if summaries_path.exists() else {}
 
     failures = 0
+    data_seeds = args.data_seeds if args.data_seeds else [None]
     for tag, ck_path in ckpts:
         recorded = json.loads((ck_path.parent / "seed_summary.json").read_text())
         for arm in args.arms.split(","):
-            run_dir = out_dir / f"{tag}__{arm}"
-            guard = run_dir / "arm_summary.json"
-            if guard.exists():
-                print(f"[skip] {tag} {arm} (complete)")
-                continue
-            print(f"[run ] {tag} {arm} -> {run_dir}")
-            ck = load_checkpoint(ck_path)
-            ck["recorded_delayed"] = recorded.get("delayed_test_accuracy")
-            ck["source_path"] = str(ck_path.relative_to(ROOT))
-            try:
-                summary = cr.run_coupling_arm(
-                    cfg, datasets, ck, arm, run_dir, seed=int(ck["seed"]),
-                    schedule_spec=schedule_spec,
-                )
-                all_summaries[f"{tag}__{arm}"] = summary
-                r = summary["rubric"]
-                print(
-                    f"      immediate={summary['battery']['immediate']:.3f} "
-                    f"delayed={summary['battery']['delayed_intact']:.3f} "
-                    f"subst_diff_follows={r['subst_diff_follows']:.3f} "
-                    f"ALL={'PASS' if r['all_criteria'] else 'fail'}"
-                )
-            except Exception as exc:  # noqa: BLE001
-                failures += 1
-                print(f"      ERROR in {tag} {arm}: {exc}")
-                raise
-            summaries_path.write_text(json.dumps(all_summaries, indent=2, default=float))
+            for data_seed in data_seeds:
+                suffix = "" if data_seed is None else f"__d{int(data_seed):03d}"
+                run_dir = out_dir / f"{tag}__{arm}{suffix}"
+                guard = run_dir / "arm_summary.json"
+                label = arm if data_seed is None else f"{arm} (data seed {data_seed})"
+                if guard.exists():
+                    print(f"[skip] {tag} {label} (complete)")
+                    continue
+                print(f"[run ] {tag} {label} -> {run_dir}")
+                ck = load_checkpoint(ck_path)
+                ck["recorded_delayed"] = recorded.get("delayed_test_accuracy")
+                ck["source_path"] = str(ck_path.relative_to(ROOT))
+                try:
+                    summary = cr.run_coupling_arm(
+                        cfg, datasets, ck, arm, run_dir, seed=int(ck["seed"]),
+                        schedule_spec=schedule_spec, data_seed=data_seed,
+                    )
+                    all_summaries[f"{tag}__{arm}{suffix}"] = summary
+                    r = summary["rubric"]
+                    print(
+                        f"      immediate={summary['battery']['immediate']:.3f} "
+                        f"delayed={summary['battery']['delayed_intact']:.3f} "
+                        f"subst_diff_follows={r['subst_diff_follows']:.3f} "
+                        f"ALL={'PASS' if r['all_criteria'] else 'fail'}"
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    failures += 1
+                    print(f"      ERROR in {tag} {label}: {exc}")
+                    raise
+                summaries_path.write_text(json.dumps(all_summaries, indent=2, default=float))
 
     # Rebuild the aggregate from disk: with parallel or resumed runs, each
     # process only knows the arms it ran itself, so the on-disk summaries are
