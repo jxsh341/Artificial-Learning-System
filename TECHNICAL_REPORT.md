@@ -966,6 +966,30 @@ the original result remains an isolated observation and the distinguishing featu
 must be investigated. Functional outcomes decide; parameter displacement *magnitudes* are
 not required to match across seeds.
 
+## 8k. Delay scaling — evaluation only (pre-registered, queued)
+
+**Question:** after the capability is acquired, which of the three kinds of retention
+survive longer delays? These are reported separately and never collapsed into one number.
+
+- **information retention** — is the answer still decodable from the state at the response
+  step (held-out linear probe; criterion >= 0.95)?
+- **functional retention** — does that state still *control* the response (causal
+  substitution: different-answer follows >= 0.9, zero and shuffled at chance <= 0.65)?
+- **behavioural retention** — is the response correct (delayed accuracy >= 0.9)?
+
+**Design:** all 23 successful D800 checkpoints (original 3 + population 20), evaluated at
+delays 3, 10, 30 and 100. **No training, no parameter change, no state-dimension change** —
+each checkpoint is loaded and probed. Per checkpoint and delay: delayed accuracy, state
+reset control, probe decodability at the response step, mean state norm, mean logit margin,
+and the full substitution battery. `scripts/run_delay_scaling.py`, sharded across workers;
+outputs `results/delay_scaling/` (one CSV row per checkpoint x delay + per-seed
+trajectories in `summary.json`). Individual trajectories are reported, not pooled means.
+
+**Working hypothesis (to be tested, not assumed):** behavioural retention will fail before
+information retention does, because §7 already established that a decodable answer can be
+present in the state while being functionally unused. If that pattern appears under delay,
+it is the same dissociation as a function of time rather than of training.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
