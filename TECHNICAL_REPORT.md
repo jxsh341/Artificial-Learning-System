@@ -1425,6 +1425,50 @@ immediate dose (e.g. the 100 full episodes of §8l stage B) is *not* tested here
 equal encoder displacement must not be read as equal functional consequence — displacement
 and outcome are reported separately per arm.
 
+## 8o. Where the representation dies between delay 30 and 100 (pre-registered, evaluation only)
+
+**Question.** §8k established the coarse picture: delay 10 retains everything (23/23),
+delay 30 splits the population (information 23/23, behaviour 11/23), delay 100 has lost
+the information itself (0/23). What happens between those points, and is it the same
+event in every checkpoint? This is a *different* failure from §8l/§8m: at delay 30 the
+information exists (and can even be repaired); by delay 100 there is nothing left to
+reconnect.
+
+**Design (evaluation only, no training, no parameter change).** All 23 successful
+checkpoints x a fixed delay ladder
+`[3, 10, 14, 18, 22, 26, 30, 40, 50, 65, 80, 100]` — ~4-step resolution across the 10–30
+region where §8k found the behavioural switch, coarser beyond. Per checkpoint x delay:
+behavioural retention and the state-reset control; held-out ridge decodability of the
+answer at the response step; decodability at intermediate trial points (presentation,
+first delay step, quarter/half/three-quarter points) to locate *where in the trial* the
+information dies; per-dimension point-biserial correlation between each state dimension
+and the label; mean state norm and mean absolute margin; across-instance dispersion of
+the response-step state and the drift of the mean state from its delay-3 position
+(attractor diagnostics). The causal substitution battery is **not** repeated here — §8k
+already measured it at 3/10/30/100; a functional check at a newly located collapse point
+would be a separate pre-registered follow-up (`scripts/run_delay_transition.py`,
+`results/delay_transition/`).
+
+**Pre-registered definitions.** Information threshold: decode >= 0.95 (as §8k); `D_info`
+= first ladder delay with decode < 0.95. Behavioural threshold: delayed accuracy >= 0.9;
+`D_behav` = first ladder delay below it. Abrupt vs gradual: abrupt if decode at `D_info`
+<= 0.65, gradual if strictly between 0.65 and 0.95. Code carriers: dimensions with
+|point-biserial r| >= 0.5 at delay 3 (§7 found a sparse ~3-of-8 code); a carrier is lost
+at the first ladder delay with |r| < 0.3.
+
+**Questions fixed in advance:** (1) the distributions of `D_info` and `D_behav` across
+the 23 checkpoints, and whether behaviour still fails before information at this
+resolution; (2) abrupt vs gradual, per checkpoint; (3) whether the same dimensions die
+first in every checkpoint, and whether carriers die together or sequentially; (4) whether
+the state converges toward a common attractor (dispersion and mean-state drift shrinking)
+or becomes instance-dependent noise; (5) whether the delay-30 passing and failing groups
+(§8k) differ in `D_info`.
+
+**Interpretation.** Descriptive mapping of the failure boundary; no intervention is run
+in this section, and claims are bounded to the measured quantities. The ladder spacing
+bounds the temporal resolution of "abrupt vs gradual" (a drop could hide between ladder
+points); the exact per-checkpoint transition is located only to the ladder grid.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
