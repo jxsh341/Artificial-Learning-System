@@ -966,6 +966,36 @@ the original result remains an isolated observation and the distinguishing featu
 must be investigated. Functional outcomes decide; parameter displacement *magnitudes* are
 not required to match across seeds.
 
+### §8j results (`results/coupling_rescue_b2_replication/`)
+
+| data order | capture | decode pre → post | head/C/D delta (stage 4) | GNN / pooling / gen | imm | delayed | same | follows | zero / shuffled | rubric |
+|---|---|---|---|---:|---|---:|---:|---:|---:|---|---|
+| 2 (original) | none | 0.530 → 1.000 | 0.000 / 0.000 / 0.000 | 3.60 / 3.26 / 0.82 | 1.000 | 1.000 | 1.000 | 1.000 | 0.520 / 0.460 | PASS |
+| 3 | none | 0.530 → 1.000 | 0.000 / 0.000 / 0.000 | 3.64 / 3.25 / 0.74 | 1.000 | 1.000 | 1.000 | 1.000 | 0.520 / 0.460 | PASS |
+| 4 | none | 0.530 → 1.000 | 0.000 / 0.000 / 0.000 | 3.64 / 3.41 / 0.80 | 1.000 | 1.000 | 1.000 | 1.000 | 0.480 / 0.460 | PASS |
+| 5 | none | 0.530 → 1.000 | 0.000 / 0.000 / 0.000 | 3.57 / 3.19 / 0.82 | 1.000 | 1.000 | 1.000 | 1.000 | 0.520 / 0.460 | PASS |
+
+**Verdict against the pre-registered rule: 3/3 → strong evidence for a second acquisition
+route in this setup.** Under three independent training data orders, the same checkpoint
+reaches the full rubric with **no capture event**, with head and SSM C/D exactly frozen
+(deltas 0.000), by moving the representation pathway, and the answer's decodability rises
+from 0.530 to 1.000. The causal substitution battery confirms the result is state-read, not
+a reroute (same 1.000, different-answer follows 1.000, zero/shuffled at chance).
+
+**Mechanistic reading (bounded).** In stage 3 the readout is trained on a state that carries
+no answer: it settles on an *uninformative but fixed* decision direction. In stage 4 the
+readout is frozen, so the encoder must instead shape the state to that direction — and it
+does, in every replication. Acquisition and utilisation therefore occur in **different
+stages**: the utilisation mapping exists (as a fixed direction) before there is anything to
+utilise, and acquisition is what makes it functional. This is a distinct route from
+capture-and-hold, where utilisation is learned after acquisition.
+
+**Scope.** The route is data-order robust *for this checkpoint* (3/3), but rare across
+checkpoints (1 of 6 answer-absent checkpoints). It should not be merged into H7b: the
+mechanisms differ in which side of the interface adapts. Whether the route generalises to
+other answer-absent checkpoints, or depends on the particular frozen direction that stage 3
+happened to settle on, is open.
+
 ## 8k. Delay scaling — evaluation only (pre-registered, queued)
 
 **Question:** after the capability is acquired, which of the three kinds of retention

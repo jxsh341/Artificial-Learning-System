@@ -106,6 +106,7 @@ markers disappear. Controls include:
 | Acquire + retain is achievable with schedule-only changes (H7/H7b) | capture-and-hold with **per-episode alternating restore** (freeze at first delayed ≥ 0.9 probe; readout static while the representation adapts) meets **all** pre-registered criteria on **both** phenotype-iii sources — immediate 1.000, delayed 1.000, substitution follows 1.000, state representation preserved (norm ratio 0.87/1.07). The blocked-restore failure of H7 was a schedule artifact (§8f), corrected and preserved in the record |
 | Compatibility of shared-representation objectives | under alternating joint adaptation the two objectives co-exist (immediate gradients vanish once satisfied); blocked phases are what destroy co-acquired solutions — compatibility is achievable without architecture change |
 | Capture-and-hold generalises to the class it targets, and only to it (§8i) | across **all nine** failing checkpoints in the frozen study: "present-but-unused" checkpoints (answer decodes at 1.000, behaviour at chance) capture and pass the full rubric **3/3** (95% CI 0.292–1.000); "never-computed" and "computed-then-decayed" checkpoints (answer absent at response) capture **0/6** and 5/6 stay at chance. Applicability is predictable *in advance* from a state probe, not from the schedule. One answer-absent checkpoint passed by a different route: with the readout exactly frozen, encoder adaptation created the state representation (decode 0.53 → 1.000) — flagged for replication |
+| Two distinct acquisition routes, separated by which side of the interface adapts (§8j) | **capture-and-hold** (H7b): the readout learns utilisation *after* the answer is present — 3/3 phenotype-iii checkpoints. **Encoder-side acquisition** (B2): the readout is frozen and uninformative, and the encoder learns to write the answer into the state — 3/3 data-order replications, decode 0.53 → 1.000, head/C/D deltas exactly 0.0, substitution follows 1.000. Kept as separate hypotheses, not merged |
 | D800 is a reliable reference baseline (population study, §8h) | 20 fresh seeds, frozen config: **20/20** delayed ≥ 0.9 and immediate 1.000 (95% CI 0.832–1.000); with the original 3 seeds kept separate, **23/23** (95% CI 0.852–1.000). State reset → chance (mean 0.500) in every seed. Unseen size 22/23 ≥ 0.985; the single exception (seed 19, 0.560) is an encoder scale/degree calibration issue — immediate and delayed fail together, reset stays at chance, and degree-matched n=200 restores 1.000 |
 
 **Scope caveats:** the state-reset result establishes *necessity of the state*, not a
@@ -137,6 +138,12 @@ rule (readout forgetting). 3/3 does not tightly bound the *population* success r
 > predicted in advance by a state probe: checkpoints whose state does not carry the answer
 > at response time did not capture (0/6) and mostly stayed at chance (5/6), so the
 > intervention generalises exactly to the failure class it targets, not to all failures.
+> Two distinct acquisition routes were then separated experimentally: **capture-and-hold**,
+> where the readout learns utilisation after the answer is already present, and
+> **encoder-side acquisition**, where an exactly frozen, uninformative readout is left in
+> place and the encoder learns to write the answer into the state (3/3 data-order
+> replications, decodability 0.53 → 1.000, head/C/D deltas 0.000, causal substitution
+> intact). Acquisition and utilisation therefore need not occur in the same training stage.
 > A separate 20-seed population run on the frozen D800 configuration bounds the reference
 > baseline: 20/20 seeds acquire the delayed capability (delayed ≥ 0.9) with immediate
 > accuracy 1.000 and state reset at chance (23/23 including the original seeds; 95% CI
@@ -220,11 +227,16 @@ and seeds.
   such checkpoints in the study pass the full rubric (3/3, CI 0.292–1.000), the six
   answer-absent ones capture 0/6 and mostly stay at chance. One answer-absent checkpoint
   passed by encoder-side acquisition under a frozen readout (flagged for replication).
+- **B2 replication complete** (§8j): encoder-side acquisition reproduced **3/3** across
+  independent data orders — no capture event, readout exactly frozen (head/C/D deltas
+  0.000), decode 0.53 → 1.000, full rubric pass. Treated as a second acquisition route,
+  separate from H7b.
 - Reproducibility verified: `scripts/verify_reproducibility.py` regenerates all published
   metrics from committed checkpoints + configs (12/12 exact matches).
-- Open items: the mechanism of the ~20-episode readout oscillation; delay scaling; the
-  single population seed with an unseen-size gap (encoder edge-density calibration); the
-  encoder-side acquisition route seen once in `B_delayed:2`.
+- Open items: delay scaling (pre-registered, running); the mechanism of the ~20-episode
+  readout oscillation; the single population seed with an unseen-size gap (encoder
+  edge-density calibration); how far the encoder-side acquisition route generalises beyond
+  its one checkpoint.
 - ~~Unseen-size anomaly~~ resolved: was an evaluation-protocol defect (generic blank not
   threaded into the generalization probe). Corrected, and the controlled size sweep
   (100→200, degree-matched) is flat — see `scripts/run_size_sweep.py` outputs in
