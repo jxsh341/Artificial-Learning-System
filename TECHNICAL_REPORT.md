@@ -1380,6 +1380,51 @@ schedule balancing alone; long-delay maintenance would require a mechanism that 
 encoder and the frozen readout jointly calibrated (e.g. constrained or readout-aware
 encoder updates) — a candidate for future work, not a result.
 
+## 8n. Gradient isolation at delay 30 (pre-registered)
+
+**Question (left open by design in §8m):** which objective destabilises the delay-30
+rescue — the delayed one, the immediate one, or only their combination?
+
+**Design.** The same 12 captured checkpoints as §8m (the readout-only rescue state:
+decode 1.000, substitution follows 1.000). Readout frozen in both arms
+(`encoder_only`; head/C/D deltas must be exactly 0.000), and exactly one training stream
+active per arm:
+
+- **`delayed_only`** — 100 delayed episodes at delay 30: the identical delayed exposure
+  of §8m and §8l stage B, continuing the same delay-30 data stream from the RNG state
+  saved at capture;
+- **`immediate_only`** — 100 immediate steps (`sequence_length = 1`, delay 0): the
+  identical immediate exposure of §8m's balanced stage.
+
+This completes the 2x2 decomposition of the joint stage: **no updates** (the captured
+state itself), **delayed-only**, **immediate-only**, and **both** (§8m). Doses match §8m's
+per-side exposure exactly, so any outcome difference is attributable to *which* objective
+is active, not to dose (`scripts/run_isolation_arms.py`, `results/delay30_isolation/`).
+
+**Measured per run:** delayed and immediate accuracy at a probe schedule (episodes 1–5,
+then every 10); at the **first** probe with delayed accuracy < 0.9, an explicit
+decodability measurement (held-out ridge decode, state norm, margin) to locate the
+earliest representational collapse and distinguish a boundary translation (decode intact)
+from representational loss (decode collapsed); pre and post full state summaries with the
+substitution battery; the final battery and the **same pre-registered full rubric**;
+parameter deltas; and post-stage geometry (secondary).
+
+**Interpretation (fixed before running):**
+
+- **delayed_only collapses (0/12), immediate_only does not (12/12)** → the delayed
+  objective itself is destabilising under a frozen readout;
+- **immediate_only collapses, delayed_only does not** → immediate-task adaptation destroys
+  the long-delay representation;
+- **both collapse** → either objective alone suffices; no interaction is needed;
+- **neither collapses** → the interaction between the two objectives is necessary; §8m's
+  collapse requires concurrent streams.
+
+Partial outcomes are interpreted per arm with the rank-separation rule used throughout.
+Two caveats, fixed in advance: (i) conclusions hold for the §8m-matched doses — a larger
+immediate dose (e.g. the 100 full episodes of §8l stage B) is *not* tested here; (ii)
+equal encoder displacement must not be read as equal functional consequence — displacement
+and outcome are reported separately per arm.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
