@@ -1425,6 +1425,59 @@ immediate dose (e.g. the 100 full episodes of §8l stage B) is *not* tested here
 equal encoder displacement must not be read as equal functional consequence — displacement
 and outcome are reported separately per arm.
 
+### §8n results (`results/delay30_isolation/`)
+
+The completed 2x2 decomposition of the joint stage:
+
+| arm | updates | full rubric | collapse | failure mode |
+|---|---|---|---|---|
+| none (captured state) | — | 12/12 by construction | — | — |
+| **delayed_only** | 100 delayed episodes | **0/12** | **episode 1, in 12/12** | representational |
+| **immediate_only** | 100 immediate steps | **3/12** | episodes 1–50, heterogeneous | mostly compatibility |
+| both (§8m) | 100 balanced pairs | 0/12 | within 10 pairs | representational |
+
+**The delayed objective alone destroys the rescue — in one update.** All 12 collapse
+between the pre-probe and the episode-1 probe (delayed 1.000 -> 0.48–0.52) and never
+recover across 100 episodes. Decode at the collapse point is 0.45–1.00 (median 0.52) and
+0.28–0.52 at the end: the representation itself is destroyed, not just the boundary.
+GNN delta 0.85–1.15. The delayed updates also damage a task they never train on:
+immediate accuracy falls to 0.735–1.000 (mean 0.93).
+
+**The immediate objective is heterogeneous and mostly non-representational.** Three seeds
+survive all 100 steps outright (seeds 4 and 13 hold 1.000 throughout; seed 11 dips at
+episodes 10–60 and recovers by 70). Of the 9 failures, **7 have decode 1.000 at the
+collapse point** — boundary translation with the information intact — and the encoder
+drift is 10–50x smaller (GNN delta 0.02–0.13) than in delayed_only. Three outliers
+(seeds 0, 16, 17; delta 1.00–1.46) resemble the delayed-arm collapse. Immediate accuracy
+stays 1.000 (the arm trains on it).
+
+**Why the asymmetry (measured at the captured point).** The two tasks are solved at very
+different confidences. Delayed at delay 30: mean |margin| 0.26–0.42. Immediate at
+delay 0: mean |margin| 4.4–7.1. The immediate objective therefore produces near-zero
+gradients — the encoder barely moves, and where it does fail, the state drifts slowly past
+the frozen boundary while the answer stays decodable. The delayed objective still has a
+substantive loss to reduce at delay 30; its gradient becomes a full-size encoder step into
+the state-generation pathway — the very pathway that writes the code the frozen readout
+reads — and a single step is enough.
+
+**Verdict against the pre-registered rule: the "partial" branch — heterogeneous
+mechanisms.** The delayed objective is *sufficient* to destroy the rescue (12/12,
+instantly, representationally); the immediate objective is not (3/12 survive, and 7 of the
+9 remaining failures preserve decode). The §8m collapse is therefore attributable to the
+delayed side of the joint stage.
+
+**Bounded claims.**
+(1) Under the tested doses, the delayed objective alone destroys the delay-30 rescue in
+12/12 within one episode; the immediate objective alone preserves it in 3/12 and fails
+non-representationally in 7 of the 9 remaining.
+(2) Dose caveat as pre-registered: a larger immediate dose (100 full episodes, the §8l-B
+side) is not tested here.
+(3) The margin asymmetry is measured; the gradient-to-update account is an inference from
+it, not a direct measurement of gradient magnitudes.
+(4) Nothing here contradicts §8m: balancing events could not help because the
+destabiliser was the delayed side all along. The binding constraint is readout
+compatibility of the long-delay state **under delayed-gradient encoder updates**.
+
 ## 8o. Where the representation dies between delay 30 and 100 (pre-registered, evaluation only)
 
 **Question.** §8k established the coarse picture: delay 10 retains everything (23/23),
