@@ -190,7 +190,8 @@ def _run_episodes(trainers, episodes: int, mode: str, rehearsal_every: int = 4,
         ``capture_threshold`` (returns the capture info).
     Returns ``(captured, episodes_used, capture_info)``.
     """
-    tr_imm, tr_del = trainers
+    tr_imm = trainers[0]
+    tr_del = trainers[1]
     if mode == "interleaved":
         tr_imm.train(episodes // 2)
         tr_del.train(episodes - episodes // 2)
@@ -201,6 +202,18 @@ def _run_episodes(trainers, episodes: int, mode: str, rehearsal_every: int = 4,
                 tr_del.train(1)
             else:
                 tr_imm.train(1)
+        return False, episodes, None
+    if mode == "alternating_events":
+        # Event-balanced joint stage (§8m): one delayed episode — 1 response
+        # event at long delays — paired with one immediate *step* (1 response
+        # event), so both sides deliver equal supervised events per pair.
+        if len(trainers) < 3 or trainers[2] is None:
+            raise ValueError("alternating_events needs an immediate step-trainer "
+                             "(sequence_length=1) as trainers[2]")
+        tr_step = trainers[2]
+        for _ in range(episodes):
+            tr_del.train(1)
+            tr_step.train(1)
         return False, episodes, None
     if mode == "delayed_only":
         tr_del.train(episodes)
@@ -242,6 +255,33 @@ def _state_summary(model, test_ds, delay, marker_dim, generic_blank, seed, run_d
         import json
         json.dump(clean, f, indent=2, default=float)
     return clean
+
+
+def success_rubric(pre_summary: dict, post_summary: dict, battery: dict) -> dict:
+    """Pre-registered H5/H7 success rubric (report §8b/§8g/§8l).
+
+    Immediate and delayed accuracy, same-answer substitution, different-answer
+    following, zero/shuffled controls at chance, and preserved decodability.
+    Never accuracy alone.
+    """
+    dec_post = post_summary.get("decode_pre_response", np.nan)
+    rubric = {
+        "immediate_ok": bool(battery["immediate"] >= 0.90),
+        "delayed_ok": bool(battery["delayed_intact"] >= 0.90),
+        "subst_same_ok": bool(post_summary.get("subst_same_answer_accuracy", 0.0) >= 0.90),
+        "subst_diff_follows": float(post_summary.get("subst_diff_follows", 0.0)),
+        "zero_chance": bool(post_summary.get("subst_zero_accuracy", 1.0) <= 0.65),
+        "shuffled_chance": bool(post_summary.get("subst_shuffled_accuracy", 1.0) <= 0.65),
+        "decode_preserved": bool(dec_post >= 0.95),
+        "state_norm_ratio_post_over_pre":
+            float(post_summary.get("avf_mean_pre_response_norm", np.nan))
+            / float(pre_summary.get("avf_mean_pre_response_norm", np.nan)),
+    }
+    rubric["all_criteria"] = all(
+        rubric[k] for k in
+        ("immediate_ok", "delayed_ok", "subst_same_ok", "zero_chance", "shuffled_chance")
+    ) and rubric["subst_diff_follows"] >= 0.9 and rubric["decode_preserved"]
+    return rubric
 
 
 def run_coupling_arm(
@@ -426,23 +466,7 @@ def run_coupling_arm(
     # ---------------- final battery + success rubric (pre-registered) ----------------
     battery = _final_battery(model, test_ds, delay, marker_dim, generic_blank, seed)
     snapshot_end = param_group_snapshot(model)
-    dec_post = post_summary.get("decode_pre_response", np.nan)
-    rubric = {
-        "immediate_ok": bool(battery["immediate"] >= 0.90),
-        "delayed_ok": bool(battery["delayed_intact"] >= 0.90),
-        "subst_same_ok": bool(post_summary.get("subst_same_answer_accuracy", 0.0) >= 0.90),
-        "subst_diff_follows": float(post_summary.get("subst_diff_follows", 0.0)),
-        "zero_chance": bool(post_summary.get("subst_zero_accuracy", 1.0) <= 0.65),
-        "shuffled_chance": bool(post_summary.get("subst_shuffled_accuracy", 1.0) <= 0.65),
-        "decode_preserved": bool(dec_post >= 0.95),
-        "state_norm_ratio_post_over_pre":
-            float(post_summary.get("avf_mean_pre_response_norm", np.nan))
-            / float(pre_summary.get("avf_mean_pre_response_norm", np.nan)),
-    }
-    rubric["all_criteria"] = all(
-        rubric[k] for k in
-        ("immediate_ok", "delayed_ok", "subst_same_ok", "zero_chance", "shuffled_chance")
-    ) and rubric["subst_diff_follows"] >= 0.9 and rubric["decode_preserved"]
+    rubric = success_rubric(pre_summary, post_summary, battery)
 
     summary = {
         "arm": arm,

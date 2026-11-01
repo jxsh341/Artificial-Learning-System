@@ -1280,6 +1280,53 @@ events to be tested fairly at long delays.
 checkpoints (`captured_checkpoint.pt`, saved at the capture point, before stage 4) preserve
 the rescued models for exactly that one-variable test.
 
+## 8m. Event-balanced joint stage at delay 30 (pre-registered)
+
+**Question.** §8l stage B left two explanations for why the joint stage erased a rescue
+that readout-only training had achieved in 12/12:
+
+- **S1 schedule imbalance** — 1:1 alternating *episodes* deliver 32:1 immediate:delayed
+  response events at delay 30 (measured: 32/8/2/1 events per 32-step episode at delays
+  0/3/10/30), so the delayed task supplies too little gradient to defend its
+  representation;
+- **S2 intrinsic fragility** — the long-delay state (31 decay steps of compounding) cannot
+  be maintained by encoder-only joint updates even when the events are balanced; the
+  bottleneck is readout compatibility of the long-delay state, not the schedule.
+
+**Design.** Start from each **captured checkpoint** of §8l stage B
+(`captured_checkpoint.pt`, saved at the capture point before stage 4 — the readout-only
+rescue state, decode 1.000, substitution follows 1.000) and run **only** the joint stage,
+with exactly one variable changed: the alternation is balanced in **response events**
+instead of episodes. One delayed episode at delay 30 contains 1 response event per batch
+element; it is paired with one immediate *step* (`sequence_length = 1` at delay 0, 1
+response event), so every pair delivers equal events. The number of delayed episodes is
+the same 100 as in §8l stage B; only the immediate side changes (100 steps instead of 100
+32-step episodes). The readout stays frozen throughout (`encoder_only`; head/C/D deltas
+must be exactly 0.000 for any conclusion to hold), the delayed data stream continues from
+the RNG state saved at capture, and delay 30 is preserved in training, probes, state
+summaries and the final battery (`scripts/run_balanced_stage4.py`,
+`results/delay30_balanced/`).
+
+**Measured per run:** delayed/immediate accuracy trajectory during the balanced stage
+(probe every 10 pairs); pre (captured) and post state summaries with the full substitution
+battery; the final battery and the **same pre-registered full rubric** as §8l/§8g;
+parameter deltas; and a **secondary** post-stage geometry measurement (whether any erosion
+is again a boundary translation or a loss of decodability).
+
+**Interpretation (fixed before running):**
+
+- **12/12 full rubric** → S1: the schedule imbalance was the cause; H7b generalises to
+  delay 30 once the joint stage is event-balanced.
+- **0/12** → S2: even with balanced events, encoder-only joint updates destroy the
+  delay-30 rescue; the capability is not maintainable by the standard recipe at this
+  delay, and readout compatibility of the long-delay state is the binding constraint.
+- **partial** → mixed; compare trajectories and post-stage geometry between preserved and
+  eroded runs, with a statistic counted as predictive only if rank-separated without
+  overlap (n = 12; exact counts, no p-values).
+
+If any captured checkpoint is missing, that run is reported as missing, never silently
+excluded.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`

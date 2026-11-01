@@ -26,8 +26,14 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _sample_of(path: str) -> str:
-    return "population" if "d800_population" in (path or "") else "original"
+def _sample_of(s: dict) -> str:
+    for key in ("origin_checkpoint", "source_checkpoint"):
+        path = s.get(key) or ""
+        if "d800_population" in path:
+            return "population"
+        if "d800_interleaved" in path:
+            return "original"
+    return "original"
 
 
 def main() -> int:
@@ -43,7 +49,7 @@ def main() -> int:
 
     rows: list[dict] = []
     for key, s in summary.items():
-        sample = _sample_of(s.get("source_checkpoint", ""))
+        sample = _sample_of(s)
         seed = int(s["seed"])
         g = geo30[(geo30["sample"] == sample) & (geo30["seed"] == seed)]
         grow = g.iloc[0] if len(g) else None

@@ -181,6 +181,74 @@ class TestConfigureProbe:
 
 
 class TestDelayOverride:
+    def test_alternating_events_mode_runs(self):
+        """The event-balanced joint stage (§8m) pairs one delayed episode with
+        one immediate step and reports the pair count."""
+        model = _model()
+        ds = make_connectivity_dataset(8, seed=11, **GEN)
+        from artificial_system.environment.graph_environment import (
+            GraphClassificationEnvironment,
+        )
+        task_del = dict(GEN, delay=2, blank_mode="generic",
+                        reward_correct=1.0, reward_incorrect=0.0, stochastic_prob=0.0)
+        task_imm = dict(task_del, delay=0)
+        env_del = GraphClassificationEnvironment(ds, task_del, seed=0)
+        env_imm = GraphClassificationEnvironment(ds, task_imm, seed=1)
+        tr_del = _trainer(model, env_del)
+        tr_step = _trainer(model, env_imm)
+        tr_step.seq_len = 1  # one step = one immediate response event
+        captured, used, cap = cr._run_episodes(
+            (None, tr_del, tr_step), episodes=3, mode="alternating_events",
+        )
+        assert captured is False and used == 3 and cap is None
+
+    def test_alternating_events_requires_step_trainer(self):
+        import pytest
+        model = _model()
+        ds = make_connectivity_dataset(8, seed=11, **GEN)
+        from artificial_system.environment.graph_environment import (
+            GraphClassificationEnvironment,
+        )
+        env = GraphClassificationEnvironment(ds, dict(GEN, delay=2, blank_mode="generic"), seed=0)
+        tr = _trainer(model, env)
+        with pytest.raises(ValueError):
+            cr._run_episodes((None, tr), episodes=1, mode="alternating_events")
+
+    def test_success_rubric_matches_inline_version(self, tmp_path):
+        """The factored rubric is the pre-registered one: a model that answers
+        correctly but ignores donated state must fail all_criteria."""
+        cfg = {
+            "graph": {"node_feature_dim": 2},
+            "gnn": {"layers": 2, "hidden_dim": 8, "aggregation": "sum"},
+            "ssm": {"state_dim": 4},
+            "readout": {"pooling": "attention"},
+            "task": dict(GEN, num_train=12, num_test=8, dataset_seed=123,
+                         delay=2, blank_mode="generic",
+                         reward_correct=1.0, reward_incorrect=0.0,
+                         stochastic_prob=0.0),
+            "training": {"batch_size": 4, "sequence_length": 4,
+                         "learning_rate": 1e-3, "weight_decay": 0.0,
+                         "grad_clip": 1.0, "record_aux_every": 0},
+        }
+        datasets = cr.build_datasets_from_cfg(cfg)
+        ck = {"model_state": _model().state_dict(), "seed": 0,
+              "recorded_delayed": 0.5, "source_path": "test"}
+        summary = cr.run_coupling_arm(
+            cfg, datasets, ck, "h7b_capture_alternate", tmp_path, seed=0,
+            schedule_spec={"stage3": {"episodes": 2}, "stage4": {"episodes": 2},
+                           "capture_probe_every": 1, "capture_threshold": 1.1},
+        )
+        # rubric produced by the factored helper, with the documented rule
+        r = summary["rubric"]
+        expected = all(r[k] for k in ("immediate_ok", "delayed_ok", "subst_same_ok",
+                                      "zero_chance", "shuffled_chance")) \
+            and r["subst_diff_follows"] >= 0.9 and r["decode_preserved"]
+        assert r["all_criteria"] == expected
+        assert set(r) == {"immediate_ok", "delayed_ok", "subst_same_ok",
+                          "subst_diff_follows", "zero_chance", "shuffled_chance",
+                          "decode_preserved", "state_norm_ratio_post_over_pre",
+                          "all_criteria"}
+
     def test_delay_override_threads_through_without_mutating_cfg(self, tmp_path):
         """§8l stage B: the intervention must run at the overridden delay
         (training envs, capture probes, state summaries, final battery) while
