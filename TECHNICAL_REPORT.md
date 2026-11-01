@@ -1077,13 +1077,24 @@ make different predictions:
   readout's threshold is displaced for the shrunken delay-30 state), so one class falls
   entirely on the wrong side.
 
-These are separable in one coordinate system. Because the head is linear,
-`logit1 - logit0 = w_readout . s + c` exactly, so the readout boundary is the hyperplane
-`w_readout . s = -c`; the probe boundary is `w_probe . (s - mean) = 0`. We measure
-`w_probe` (ridge on the captured response-step states) and
-`w_readout = d(logit1 - logit0)/ds` at the mean state — the gradient includes the SSM
-output projection C and any head nonlinearity, so it is the *effective* readout direction
-in the same raw-state coordinates.
+These are separable in one coordinate system. The probe boundary is
+`w_probe . (s - mean) = 0`. The SSM applies `tanh` to the state before the readout
+(`s_t = act(A s_{t-1} + B z_t)`, `y_t = C s_t + D z_t`), so the state→logit map is **not
+globally linear** and the readout boundary is not a single hyperplane in the carried-state
+space. We therefore use the **effective local readout direction**
+`w_readout = d(logit1 - logit0)/ds` at the mean state — the gradient includes C and the
+state nonlinearity — for alignment (cosine and projections), and compute the boundary
+position, readout accuracy and prediction agreement from the **actual response-step
+logits** returned by the model. A unit test checks the gradient against a finite
+difference of the actual margin.
+
+> **Correction (recorded before stage-A results).** An earlier version of this
+> pre-registration stated that `logit1 - logit0 = w_readout . s + c` exactly. That is
+> false: the SSM applies `tanh` to the state, so the map is only locally linear. The
+> statistic definition was corrected to use actual logits for the boundary and accuracy,
+> and the local gradient only for direction. The pilot was re-run under the corrected
+> definition and gave the same numbers (cosine, boundary positions and agreement unchanged
+> to two decimals).
 
 **Pilot (disclosed, not counted as stage-A evidence).** Five checkpoints at delay 30
 (failing: original 0, population 6, 22; passing: original 1, population 5). Cosine was
@@ -1100,10 +1111,10 @@ All 23 successful checkpoints at delays 3, 10 and 30, no parameter change
 (`scripts/run_readout_geometry.py`, `results/readout_geometry/`). Per checkpoint x delay:
 held-out probe decodability; cosine between probe and effective readout direction;
 per-class and overall readout accuracy; the normalised boundary position
-`boundary_vs_mid = -(t1+t0)/2 / (t1-t0)` where `t0,t1` are the class-mean margins (0 =
-boundary midway between the class means; |value| > 0.5 = one class entirely on the wrong
-side); signed and absolute margin; state norm; projections onto each direction; and
-probe–readout prediction agreement. Groups at delay 30 are defined by the already-published
+`boundary_vs_mid = -(t1+t0)/2 / (t1-t0)` where `t0,t1` are the class-mean *actual*
+margins (0 = boundary midway between the class means; |value| > 0.5 = one class entirely
+on the wrong side); signed and absolute margin; state norm; projections onto each
+direction; and probe–readout prediction agreement. Groups at delay 30 are defined by the already-published
 behavioural outcome (`delayed_intact >= 0.9`), and the recomputed behaviour is checked
 against `delay_scaling.csv`.
 

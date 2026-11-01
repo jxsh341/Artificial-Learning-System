@@ -63,6 +63,8 @@ def capture_trial_states(
     out_lists.update({f"delay_{t+1}": [] for t in range(delay)})
     out_lists["pre_response"] = []
     logits_all: list[Tensor] = []
+    full_logits: list[Tensor] = []
+    signed_margins: list[Tensor] = []
     margins: list[Tensor] = []
     for idxs in _chunks(len(dataset), batch_size):
         b = len(idxs)
@@ -89,12 +91,16 @@ def capture_trial_states(
 
         logits, _, _ = model.step(generic, state)
         logits_all.append(logits.argmax(-1).cpu())
+        full_logits.append(logits.detach().cpu())
+        signed_margins.append((logits[:, 1] - logits[:, 0]).detach().cpu())
         margins.append((logits.max(-1).values - logits.min(-1).values).detach().cpu())
     model.train()
     result = {k: torch.cat(v) for k, v in out_lists.items()}
     result["_prediction"] = torch.cat(logits_all)
     result["_label"] = dataset.labels
     result["_margin"] = torch.cat(margins)
+    result["_logits"] = torch.cat(full_logits)
+    result["_signed_margin"] = torch.cat(signed_margins)
     return result
 
 

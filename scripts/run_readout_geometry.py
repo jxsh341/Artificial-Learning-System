@@ -135,6 +135,7 @@ def main() -> int:
         "boundary_vs_mid", "signed_margin_mean", "abs_margin_mean",
         "state_norm_mean", "class_margin_separation",
         "readout_accuracy", "readout_accuracy_class0", "readout_accuracy_class1",
+        "linear_margin_mean",
     ]
     groups: dict = {}
     for label, g in d30.groupby("behavioural_pass"):
