@@ -86,7 +86,16 @@ def main() -> int:
     ckpts = checkpoints()
     print(f"[geometry] {len(ckpts)} successful checkpoints x delays {args.delays}", flush=True)
 
+    csv_path = out_dir / "geometry.csv"
     rows: list[dict] = []
+    done: set[tuple[str, int, int]] = set()
+    if csv_path.exists():
+        prev = pd.read_csv(csv_path)
+        rows = prev.to_dict("records")
+        done = {(str(r["sample"]), int(r["seed"]), int(r["delay"])) for r in rows}
+        print(f"[geometry] resuming: {len(done)} checkpoint-delay rows already present",
+              flush=True)
+
     for sample, seed, ck_path in ckpts:
         ck = load_checkpoint(ck_path)
         cfg = ck["config"]
@@ -106,6 +115,8 @@ def main() -> int:
             )
 
         for delay in args.delays:
+            if (sample, seed, int(delay)) in done:
+                continue
             beh = ge.probe_delayed_intact_vs_reset(
                 model, datasets["test"], delay=delay, batch_size=32,
                 marker_dim=marker_dim, generic_blank=blank,
@@ -122,10 +133,10 @@ def main() -> int:
                   f"acc0/1={row['readout_accuracy_class0']:.2f}/{row['readout_accuracy_class1']:.2f} "
                   f"bnd={row['boundary_vs_mid']:+.2f} agree={row['prediction_agreement']:.2f} "
                   f"[{row['geometry_class']}]", flush=True)
-            pd.DataFrame(rows).to_csv(out_dir / "geometry.csv", index=False)
+            pd.DataFrame(rows).to_csv(csv_path, index=False)
 
-    df = pd.DataFrame(rows)
-    df.to_csv(out_dir / "geometry.csv", index=False)
+    df = pd.DataFrame(rows).sort_values(["sample", "seed", "delay"]).reset_index(drop=True)
+    df.to_csv(csv_path, index=False)
 
     # ---------------- group comparison at delay 30 (pre-registered) ----------------
     d30 = df[df.delay == 30].copy()

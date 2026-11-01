@@ -107,6 +107,7 @@ markers disappear. Controls include:
 | Compatibility of shared-representation objectives | under alternating joint adaptation the two objectives co-exist (immediate gradients vanish once satisfied); blocked phases are what destroy co-acquired solutions — compatibility is achievable without architecture change |
 | Capture-and-hold generalises to the class it targets, and only to it (§8i) | across **all nine** failing checkpoints in the frozen study: "present-but-unused" checkpoints (answer decodes at 1.000, behaviour at chance) capture and pass the full rubric **3/3** (95% CI 0.292–1.000); "never-computed" and "computed-then-decayed" checkpoints (answer absent at response) capture **0/6** and 5/6 stay at chance. Applicability is predictable *in advance* from a state probe, not from the schedule. One answer-absent checkpoint passed by a different route: with the readout exactly frozen, encoder adaptation created the state representation (decode 0.53 → 1.000) — flagged for replication |
 | Retention separates into three timescales (§8k) | evaluation-only sweep over 23 checkpoints, no retraining: at delay 10 (3.3× trained) information, functional and behavioural retention all hold **23/23**; at delay 30 (10×) **information survives 23/23 but functional and behavioural retention only 11/23**, bimodally with no intermediates, and the failures are *confidently* wrong (margin 0.74 vs 0.38, state norm 1.65 vs 1.39) — disconnection, not forgetting; at delay 100 (33×) information itself is gone (decode ≈ 0.53) |
+| The delay-30 failure is a displaced decision boundary, not a lost or rotated representation (§8l stage A) | all 23 checkpoints × delays 3/10/30: the probe direction and the effective readout direction are the same in every group (cos 0.975–0.982; failing 0.982 vs passing 0.980, so rotation is rejected). At delay 30 every failing checkpoint has **one class entirely misclassified** (\|boundary_vs_mid\| 0.52–1.75; 8 class-0-wrong, 4 class-1-wrong) with probe–readout agreement at chance (0.48/0.52), while passing checkpoints are aligned (max \|boundary_vs_mid\| 0.45, agreement 1.000). Failing margins and norms are larger, not smaller, so decay is rejected too. At delays 3 and 10 all 23 are aligned (max \|boundary_vs_mid\| 0.047 / 0.161) |
 | Two distinct acquisition routes, separated by which side of the interface adapts (§8j) | **capture-and-hold** (H7b): the readout learns utilisation *after* the answer is present — 3/3 phenotype-iii checkpoints. **Encoder-side acquisition** (B2): the readout is frozen and uninformative, and the encoder learns to write the answer into the state — 3/3 data-order replications, decode 0.53 → 1.000, head/C/D deltas exactly 0.0, substitution follows 1.000. Kept as separate hypotheses, not merged |
 | D800 is a reliable reference baseline (population study, §8h) | 20 fresh seeds, frozen config: **20/20** delayed ≥ 0.9 and immediate 1.000 (95% CI 0.832–1.000); with the original 3 seeds kept separate, **23/23** (95% CI 0.852–1.000). State reset → chance (mean 0.500) in every seed. Unseen size 22/23 ≥ 0.985; the single exception (seed 19, 0.560) is an encoder scale/degree calibration issue — immediate and delayed fail together, reset stays at chance, and degree-matched n=200 restores 1.000 |
 
@@ -240,9 +241,12 @@ and seeds.
   Perfect retention on all three measures to delay 10 (23/23); at delay 30 information
   survives 23/23 while functional and behavioural retention survive 11/23 (bimodal,
   confidently wrong failures); at delay 100 information is lost (0/23).
-- **Delay-30 geometry + intervention (pre-registered, §8l)**: stage A measures probe–readout
-  geometry on all 23 checkpoints before any intervention; stage B applies H7b at delay 30
-  to the 12 failing checkpoints, with delay 30 preserved throughout.
+- **Delay-30 geometry complete (§8l stage A)**: on all 23 checkpoints at delays 3/10/30,
+  the probe and effective readout directions agree in every group (cos 0.975–0.982), while
+  every delay-30 failure has one class entirely on the wrong side of the fixed boundary
+  (|`boundary_vs_mid`| 0.52–1.75, agreement at chance) — a displaced threshold, not rotation
+  or decay. The pre-registered prediction is 12/12 rescuable; stage B (H7b at delay 30) is
+  running.
 - Reproducibility verified: `scripts/verify_reproducibility.py` regenerates all published
   metrics from committed checkpoints + configs (12/12 exact matches).
 - Open items: the mechanism of the ~20-episode readout oscillation; the single population

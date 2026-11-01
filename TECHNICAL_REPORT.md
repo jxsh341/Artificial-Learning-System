@@ -1135,6 +1135,49 @@ predicted rescuable: a threshold displacement is exactly what readout-only train
 correct, because the frozen encoder already writes a decodable state in the direction the
 readout uses.
 
+### Stage A results (`results/readout_geometry/`)
+
+All 23 checkpoints x delays 3/10/30; behaviour reproduced exactly (`max |diff| = 0.000000`
+against `delay_scaling.csv`). Groups are split by the behavioural outcome at the same
+delay.
+
+| delay | group | n | cos(probe, readout) | agreement | mean \|boundary_vs_mid\| (max) | mean \|margin\| | state norm | class 0 / class 1 acc |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|
+| 3 | pass | 23 | 0.975 | 1.000 | 0.014 (0.047) | 3.63 | 1.94 | 1.00 / 1.00 |
+| 10 | pass | 23 | 0.978 | 1.000 | 0.066 (0.161) | 1.77 | 1.62 | 1.00 / 1.00 |
+| 30 | pass | 11 | 0.980 | 1.000 | 0.279 (0.452) | 0.38 | 1.39 | 1.00 / 1.00 |
+| 30 | **fail** | **12** | **0.982** | **0.493** | **1.110 (1.749)** | **0.74** | **1.65** | **0.33 / 0.67** |
+
+**A1 (rotation): rejected.** The failing group's cosine is 0.982, slightly *higher* than
+the passing group's 0.980 (individual range 0.940–0.999). The probe direction and the
+effective readout direction are the same direction in every checkpoint, including every
+failure.
+
+**A2 (translation): confirmed.** Every one of the 12 failing checkpoints has
+|`boundary_vs_mid`| > 0.5 (range 0.523–1.749; 8 fail with class 0 entirely wrong, 4 with
+class 1 entirely wrong), and probe–readout agreement is at chance (0.480 or 0.520). The 11
+passing checkpoints have agreement 1.000 and max |`boundary_vs_mid`| 0.452. At delays 3 and
+10 every checkpoint is aligned (max |`boundary_vs_mid`| 0.047 and 0.161), so the
+displacement is specific to delay 30.
+
+**A3 (decay): rejected.** The failing group has *larger* absolute margins (0.74 vs 0.38)
+and larger state norms (1.65 vs 1.39), not smaller. A decayed signal would show the
+opposite; this is the confidently-wrong signature.
+
+**Reading.** At delay 30 the answer is still present, still linearly decodable, and still
+written in essentially the same direction the readout uses; what has moved is the decision
+boundary along that direction. Because the state distribution has contracted and shifted,
+both class means end up on one side of the fixed boundary, so one class is confidently
+called the other. This is a **translation of the decision boundary**, not a rotation of the
+representation and not a loss of information. It also explains why the failures are
+confidently wrong rather than weakly signalled.
+
+**Stage-A prediction (recorded per checkpoint in `summary.json`): 12/12 failing checkpoints
+predicted rescuable**, because a boundary displacement is precisely the defect that
+readout-only retraining (head bias + C/D) can correct while the encoder already writes an
+aligned, decodable state. Stage B tests that prediction; it is a prediction, not a result,
+and decodability alone is never treated as use.
+
 ### Stage B — H7b at delay 30
 
 The 12 delay-30 failing checkpoints, same arm (`h7b_capture_alternate`), same budget and
