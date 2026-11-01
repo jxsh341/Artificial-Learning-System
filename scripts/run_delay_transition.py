@@ -56,6 +56,12 @@ INFO_THRESHOLD = 0.95
 BEHAV_THRESHOLD = 0.9
 CARRIER_R = 0.5
 LOST_R = 0.3
+# Saturated tanh dimensions have std <= ~5e-4 of floating-point noise; a
+# correlation computed on that noise is meaningless (it produced spurious
+# |r| up to 1.0 in the first pass).  Genuine code dimensions have std ~0.5 at
+# delay 3.  The floor sits three orders of magnitude below the code and two
+# above the noise.
+VARIANCE_FLOOR = 0.01
 ABRUPT_DECODE = 0.65
 
 
@@ -88,7 +94,9 @@ def ladder_points(delay: int) -> list[str]:
 
 
 def pointbiserial(x: np.ndarray, y: np.ndarray) -> float:
-    if x.std() < 1e-12 or y.std() < 1e-12:
+    """|point-biserial correlation|, undefined (0.0) below the variance floor:
+    a saturated dimension carries no measurable linear label information."""
+    if x.std() < VARIANCE_FLOOR or y.std() < 1e-12:
         return 0.0
     return float(abs(np.corrcoef(x, y)[0, 1]))
 
@@ -180,6 +188,7 @@ def main() -> int:
                 row[f"decode_{p}"] = float(point_dec[p]["accuracy"])
             for j in range(state_dim):
                 row[f"r_dim{j}"] = pointbiserial(X[:, j], labels.astype(float))
+                row[f"std_dim{j}"] = float(X[:, j].std())
             rows.append(row)
             print(f"  {sample:>10} seed {seed:>2} delay {delay:>3}: "
                   f"behav={row['delayed_intact']:.3f} decode={row['decode_pre_response']:.3f} "
@@ -210,12 +219,14 @@ def _summarise(df: pd.DataFrame, out_dir: Path) -> None:
         g3 = g[g.delay == args_delays0(df)]
         carriers = [int(c[-1]) for c in state_cols
                     if len(g3) and float(g3.iloc[0][c]) >= CARRIER_R]
+        # carrier loss: only dims that were carriers at the reference delay;
+        # lost = first delay with |r| < LOST_R or variance below the floor
         carrier_loss = {}
-        for c in state_cols:
-            dim = int(c[-1])
-            below = g[g[c] < LOST_R]
-            if len(below):
-                carrier_loss[f"dim{dim}"] = int(below.delay.iloc[0])
+        for dim in carriers:
+            rcol, scol = f"r_dim{dim}", f"std_dim{dim}"
+            lost = g[(g[rcol] < LOST_R) | (g[scol] < VARIANCE_FLOOR)]
+            if len(lost):
+                carrier_loss[f"dim{dim}"] = int(lost.delay.iloc[0])
         per_ckpt[f"{sample}_seed{seed:03d}"] = {
             "D_info": d_info,
             "D_behavioural": d_behav,
@@ -242,6 +253,7 @@ def _summarise(df: pd.DataFrame, out_dir: Path) -> None:
         "thresholds": {
             "information": INFO_THRESHOLD, "behavioural": BEHAV_THRESHOLD,
             "abrupt_decode": ABRUPT_DECODE, "carrier_r": CARRIER_R, "lost_r": LOST_R,
+            "variance_floor": VARIANCE_FLOOR,
         },
         "D_info_distribution": {str(d): d_infos.count(d) for d in sorted(set(d_infos))},
         "D_behavioural_distribution": {str(d): d_behavs.count(d) for d in sorted(set(d_behavs))},

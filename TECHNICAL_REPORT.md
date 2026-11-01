@@ -1522,6 +1522,20 @@ in this section, and claims are bounded to the measured quantities. The ladder s
 bounds the temporal resolution of "abrupt vs gradual" (a drop could hide between ladder
 points); the exact per-checkpoint transition is located only to the ladder grid.
 
+> **Correction (recorded before reporting the affected columns).** The first pass of the
+> per-dimension analysis computed point-biserial correlations with a variance guard of
+> 1e-12. Five of the eight state dimensions are tanh-saturated (across-instance std
+> <= ~5e-4 of floating-point noise), and correlations computed on that noise produced
+> spurious |r| up to 1.0 — which would have made every dimension look like a code carrier,
+> contradicting §7's 3-of-8 finding. Direct inspection confirmed the genuine carriers are
+> the 3 sign-flipping dims (class means +-0.50, std ~0.5), with the other 5 saturated and
+> constant. The correlation is now undefined (0.0) below a variance floor of 0.01 — three
+> orders of magnitude below the code dims and two above the saturated noise — and carrier
+> loss is tracked only for dims that were carriers at the reference delay. The decode,
+> behaviour, dispersion and drift results are unaffected (the delay-30 rows reproduce §8k
+> exactly, max |diff| = 0.000 on both measures). The affected columns were re-measured
+> before any conclusion was drawn from them.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
