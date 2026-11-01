@@ -108,6 +108,7 @@ markers disappear. Controls include:
 | Capture-and-hold generalises to the class it targets, and only to it (§8i) | across **all nine** failing checkpoints in the frozen study: "present-but-unused" checkpoints (answer decodes at 1.000, behaviour at chance) capture and pass the full rubric **3/3** (95% CI 0.292–1.000); "never-computed" and "computed-then-decayed" checkpoints (answer absent at response) capture **0/6** and 5/6 stay at chance. Applicability is predictable *in advance* from a state probe, not from the schedule. One answer-absent checkpoint passed by a different route: with the readout exactly frozen, encoder adaptation created the state representation (decode 0.53 → 1.000) — flagged for replication |
 | Retention separates into three timescales (§8k) | evaluation-only sweep over 23 checkpoints, no retraining: at delay 10 (3.3× trained) information, functional and behavioural retention all hold **23/23**; at delay 30 (10×) **information survives 23/23 but functional and behavioural retention only 11/23**, bimodally with no intermediates, and the failures are *confidently* wrong (margin 0.74 vs 0.38, state norm 1.65 vs 1.39) — disconnection, not forgetting; at delay 100 (33×) information itself is gone (decode ≈ 0.53) |
 | The delay-30 failure is a displaced decision boundary, not a lost or rotated representation (§8l stage A) | all 23 checkpoints × delays 3/10/30: the probe direction and the effective readout direction are the same in every group (cos 0.975–0.982; failing 0.982 vs passing 0.980, so rotation is rejected). At delay 30 every failing checkpoint has **one class entirely misclassified** (\|boundary_vs_mid\| 0.52–1.75; 8 class-0-wrong, 4 class-1-wrong) with probe–readout agreement at chance (0.48/0.52), while passing checkpoints are aligned (max \|boundary_vs_mid\| 0.45, agreement 1.000). Failing margins and norms are larger, not smaller, so decay is rejected too. At delays 3 and 10 all 23 are aligned (max \|boundary_vs_mid\| 0.047 / 0.161) |
+| H7b at delay 30: the readout *can* rescue it, but the joint schedule is not delay-invariant (§8l stage B) | 12 failing checkpoints, delay 30 preserved throughout: **capture fired 12/12** (episodes 5–15) and the readout-only stage alone reached the full rescue signature **12/12** (delayed 1.000, decode 1.000, same 1.000, follows 1.000, zero/shuffled at chance). The pre-registered full-rubric outcome is **0/12**: the joint stage then erases it in 12/12 (delayed → 0.48–0.52, decode → 0.29–0.52) with the readout exactly frozen (deltas 0.000). Measured cause: 1:1 alternating *episodes* deliver 32:1 immediate:delayed supervised events at delay 30 (events per 32-step episode: 32/8/2/1 at delays 0/3/10/30) vs 4:1 at delay 3, where H7b passed 3/3 while moving the encoder *more* (GNN delta 1.29–3.64 vs 0.81–1.35) — the delayed task supplies too little gradient to defend a 31-step-compounded state, not too much encoder drift |
 | Two distinct acquisition routes, separated by which side of the interface adapts (§8j) | **capture-and-hold** (H7b): the readout learns utilisation *after* the answer is present — 3/3 phenotype-iii checkpoints. **Encoder-side acquisition** (B2): the readout is frozen and uninformative, and the encoder learns to write the answer into the state — 3/3 data-order replications, decode 0.53 → 1.000, head/C/D deltas exactly 0.0, substitution follows 1.000. Kept as separate hypotheses, not merged |
 | D800 is a reliable reference baseline (population study, §8h) | 20 fresh seeds, frozen config: **20/20** delayed ≥ 0.9 and immediate 1.000 (95% CI 0.832–1.000); with the original 3 seeds kept separate, **23/23** (95% CI 0.852–1.000). State reset → chance (mean 0.500) in every seed. Unseen size 22/23 ≥ 0.985; the single exception (seed 19, 0.560) is an encoder scale/degree calibration issue — immediate and delayed fail together, reset stays at chance, and degree-matched n=200 restores 1.000 |
 
@@ -241,12 +242,13 @@ and seeds.
   Perfect retention on all three measures to delay 10 (23/23); at delay 30 information
   survives 23/23 while functional and behavioural retention survive 11/23 (bimodal,
   confidently wrong failures); at delay 100 information is lost (0/23).
-- **Delay-30 geometry complete (§8l stage A)**: on all 23 checkpoints at delays 3/10/30,
-  the probe and effective readout directions agree in every group (cos 0.975–0.982), while
-  every delay-30 failure has one class entirely on the wrong side of the fixed boundary
-  (|`boundary_vs_mid`| 0.52–1.75, agreement at chance) — a displaced threshold, not rotation
-  or decay. The pre-registered prediction is 12/12 rescuable; stage B (H7b at delay 30) is
-  running.
+- **Delay-30 geometry + intervention complete (§8l, two stages)**: stage A showed the
+  delay-30 failures are *translated* decision boundaries (directions aligned, one class
+  entirely wrong) — rotation and decay rejected. Stage B showed readout-only coupling
+  rescues all 12 at delay 30 (capture 12/12, full rescue signature 12/12), but the
+  pre-registered full rubric is 0/12 because the episode-based joint stage (32:1
+  immediate:delayed events at delay 30) erases the rescue while the readout stays frozen.
+  Open: an event-balanced joint stage; delay-100 representation loss.
 - Reproducibility verified: `scripts/verify_reproducibility.py` regenerates all published
   metrics from committed checkpoints + configs (12/12 exact matches).
 - Open items: the mechanism of the ~20-episode readout oscillation; the single population

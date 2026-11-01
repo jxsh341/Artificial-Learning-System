@@ -1217,6 +1217,69 @@ zero/shuffled controls at chance, and preserved decodability. The geometry is me
 before the intervention and in a separate results directory, so the intervention cannot
 contaminate the diagnostic.
 
+### Stage B results (`results/delay30_h7b/`)
+
+All 12 runs show the **same pattern, with no exceptions**:
+
+| measure | at capture / stage 3 (readout-only) | after stage 4 (joint, readout frozen) |
+|---|---|---|
+| capture event | **12/12**, at episodes 5–15, delayed = 1.000 at capture | — |
+| delayed accuracy | **1.000** (12/12) | 0.48–0.52 (**0/12** >= 0.9) |
+| probe decodability | 1.000 | 0.29–0.52 |
+| same-answer substitution | 1.000 | 0.48–0.52 |
+| different-answer follows | **1.000** | 0.48–0.52 |
+| zero / shuffled controls | 0.48–0.52 / 0.48–0.58 (chance) | 0.48–0.52 (chance) |
+| immediate accuracy | 1.000 | 1.000 |
+| head / C / D delta | 0.011–0.029 / 0.022–0.080 / 0.023–0.103 | **0.000 exactly** (frozen) |
+| GNN / gen delta | 0.000 (frozen) | 0.81–1.35 / 0.11–0.20 |
+
+**Pre-registered full-rubric outcome: 0/12.** But the pre-registered interpretation
+"0/12 → mechanistically different" does **not** apply as written, because the failure is
+not at the access step:
+
+- **Capture fired in 12/12.** Readout-only training at delay 30 reached delayed accuracy
+  1.000 within 5–15 episodes in every checkpoint.
+- **The readout-only stage alone reached the full rescue signature in 12/12**: delayed
+  1.000, decode 1.000, same-answer 1.000, different-answer follows 1.000, zero/shuffled at
+  chance, immediate 1.000. (The stage-3 analysis is a diagnostic instrumented in the
+  procedure, not the success criterion; it is reported as such.)
+- **The joint stage erased it in 12/12** while the readout stayed exactly frozen
+  (head/C/D delta 0.000) and the encoder moved (GNN 0.81–1.35).
+
+So the stage-A prediction is **confirmed at the level it was made**: the retained
+representation is accessible to readout-only coupling at delay 30 in every failing
+checkpoint, and repairing the boundary is sufficient to restore both behaviour and causal
+state use. Delay-induced disconnection is not a different *accessibility* mechanism from
+the training-induced one; the same intervention reaches it the same way.
+
+**Why the joint stage fails at delay 30 but worked at delay 3.** The H7b joint stage is
+"1:1 alternating" in *episodes*, and an episode is a fixed 32-step window. Measured
+directly on the training environment, supervised response events per 32-step episode are:
+immediate (delay 0) **32**, delay 3 **8**, delay 10 **2**, delay 30 **1**. Stage 4
+alternates 100 delayed episodes with 100 immediate episodes, so it delivers 3200 immediate
+events against **100** delayed events at delay 30 (32:1) but 3200 against 800 (4:1) at
+delay 3 — an 8x smaller delayed share. Two further observations sharpen this:
+
+- The successful delay-3 H7b runs moved the encoder **more** in stage 4 (GNN delta
+  1.29–3.64) than these delay-30 failures (0.81–1.35). Raw encoder displacement is not what
+  destroys the capability; the delayed task simply supplies almost no gradient to defend
+  its representation under a 32:1 immediate majority.
+- The delay-30 state is the accumulation of 31 decay steps, so a given encoder change has
+  31 steps to compound before the response; the same drift is far more disruptive than at
+  delay 3. (This is a hypothesis; the event-balanced test below separates the two.)
+
+**Bounded claims.**
+(1) Against the pre-registered rule the outcome is 0/12, and that is what is reported; the
+stage-3 rescue is a diagnostic, not a substitute criterion.
+(2) The erosion is caused by the *joint schedule*, not by readout inaccessibility: capture
+and readout-only rescue succeeded in 12/12 with the causal battery intact.
+(3) "1:1 alternating joint episodes" is not delay-invariant; it is 1:1 only in episodes,
+and at delay 30 that is ~32:1 in supervised events. The recipe must be balanced in response
+events to be tested fairly at long delays.
+(4) Whether an event-balanced joint stage preserves the rescue is open; the captured
+checkpoints (`captured_checkpoint.pt`, saved at the capture point, before stage 4) preserve
+the rescued models for exactly that one-variable test.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
