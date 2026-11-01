@@ -1146,6 +1146,14 @@ unchanged: readout-only delayed training, capture at the first probe with delaye
 accuracy >= 0.9, freeze the readout, then 1:1 alternating joint episodes, then the full
 causal substitution battery.
 
+**Budget note (recorded before running).** The budget is the standard 400 optimizer
+episodes, unrolled for `sequence_length = 32` steps each. At delay 3 that is ~8 trials per
+episode; at delay 30 a 31-step trial fills one episode, so the same episode budget contains
+only ~400 response events instead of ~3200. The budget is kept identical to §8g/§8i so the
+procedure is unchanged, and the response-event count is reported as a scope caveat. A
+failure to capture under this budget is therefore evidence about the *standard* budget, not
+a demonstration that the representation is inaccessible in principle.
+
 **Pre-registered outcome rule (fixed before running):**
 
 - **12/12 full rubric** → strong evidence that delay-induced disconnection is addressable
@@ -1156,8 +1164,9 @@ causal substitution battery.
   are rank-separated without overlap (n = 12; exact counts, no p-values);
 - **0/12** → delay-induced disconnection is mechanistically different from the
   training-induced phenotype;
-- **capture never fires** → readout-only coupling cannot access the retained representation
-  at delay 30, regardless of decodability.
+- **capture never fires** → readout-only coupling did not access the retained representation
+  within the standard 400-episode budget (see the budget note above); a budget-matched
+  follow-up would be required before claiming inaccessibility in principle.
 
 A checkpoint is never classified as rescued from accuracy alone: the full rubric requires
 immediate and delayed accuracy, same-answer substitution, different-answer following,
