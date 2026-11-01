@@ -996,7 +996,7 @@ mechanisms differ in which side of the interface adapts. Whether the route gener
 other answer-absent checkpoints, or depends on the particular frozen direction that stage 3
 happened to settle on, is open.
 
-## 8k. Delay scaling — evaluation only (pre-registered, queued)
+## 8k. Delay scaling — evaluation only (complete)
 
 **Question:** after the capability is acquired, which of the three kinds of retention
 survive longer delays? These are reported separately and never collapsed into one number.
@@ -1019,6 +1019,50 @@ trajectories in `summary.json`). Individual trajectories are reported, not poole
 information retention does, because §7 already established that a decodable answer can be
 present in the state while being functionally unused. If that pattern appears under delay,
 it is the same dissociation as a function of time rather than of training.
+
+### §8k results (`results/delay_scaling/`)
+
+All 23 successful checkpoints, no training, no parameter change, 92 evaluations (23 x 4):
+
+| delay | information (decode >= 0.95) | functional (follows >= 0.9, controls at chance) | behavioural (>= 0.9) | mean margin | mean state norm |
+|---:|---|---|---|---:|---:|
+| 3 (trained) | 23/23 | 23/23 | 23/23 | 3.63 | 1.94 |
+| 10 (3.3x) | **23/23** | **23/23** | **23/23** | 1.77 | 1.62 |
+| 30 (10x) | **23/23** | **11/23** | **11/23** | 0.57 | 1.52 |
+| 100 (33x) | 0/23 | 0/23 | 0/23 | 0.59 | 1.52 |
+
+**The hypothesis is confirmed, and the dissociation is bimodal.** At delay 30 every single
+checkpoint still carries a linearly decodable answer at the response step (decode 1.000 in
+23/23, and the causal substitution battery agrees: 11 follow the donated answer, 12 are at
+chance), yet only 11/23 still *use* it. There are no intermediate cases: 11 checkpoints are
+at 1.00/1.00/1.00 and 12 are at ~0.50 behaviour with decode 1.000. So behavioural retention
+fails before information retention, and it fails as a discrete switch rather than a gradual
+decay. At delay 100 the information itself is gone (decode ~0.53), so that is a different
+failure — representation loss rather than disconnection.
+
+**The delay-30 failures are confidently wrong, not weakly signalled.** The 12 checkpoints
+that fail at delay 30 have *larger* response margins than the 11 that pass (mean 0.74, range
+0.35-1.18 vs mean 0.38, range 0.20-0.42) and larger mean state norms (1.65 vs 1.39). A
+decayed or shrunken signal would show the opposite. The pattern instead indicates that the
+carried state has moved (rotated/shifted) relative to the *fixed* readout direction while
+remaining linearly separable — i.e. the same "answer present but no longer aligned with the
+readout" phenotype that §7 and §8i found after training, here produced by time alone. This
+is a hypothesis about geometry; it is supported by decode-plus-margin, not yet by a direct
+measurement of the angle between the probe direction and the readout weights.
+
+**Per-checkpoint trajectories** (behaviour / decode / follows at 3, 10, 30, 100) are in
+`results/delay_scaling/summary.json`. Representative: `original seed 1` and `population
+seeds 3, 5, 7-10, 15, 19, 20` hold all three to delay 30; `original seed 0`, `population
+seeds 4, 6, 11-14, 16-18, 21, 22` hold information but lose use at delay 30; all 23 lose
+information by delay 100.
+
+**Bounded claims.** (1) Within this architecture and task, persistent-state utilisation is
+perfectly retained to at least 10 steps (3.3x the trained delay) on all three measures.
+(2) Between 10 and 30 steps the capability breaks in about half the population, and it
+breaks as a *disconnection* (information present, use gone), not as forgetting.
+(3) Information survives longer than use but not indefinitely: by 100 steps (33x) the state
+no longer carries the answer. (4) These are evaluation-only results on the trained
+checkpoints; no intervention was attempted at longer delays.
 
 ## 9. Reproduction
 

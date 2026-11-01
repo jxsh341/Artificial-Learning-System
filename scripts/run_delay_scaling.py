@@ -59,6 +59,55 @@ def _checkpoints() -> list[tuple[str, int, Path, dict]]:
     return out
 
 
+def _merge(out_dir: Path, delays: list[int]) -> None:
+    """Combine shard CSVs into one table plus per-seed trajectories."""
+    parts = sorted(out_dir.glob("delay_scaling_shard*.csv"))
+    if not parts:
+        print("no shard CSVs to merge")
+        return
+    df = pd.concat([pd.read_csv(p) for p in parts], ignore_index=True)
+    df = df.sort_values(["sample", "seed", "delay"]).reset_index(drop=True)
+    df.to_csv(out_dir / "delay_scaling.csv", index=False)
+
+    per_delay = {}
+    for d, g in df.groupby("delay"):
+        per_delay[int(d)] = {
+            "information_retention": int((g.decode_pre_response >= 0.95).sum()),
+            "functional_retention": int(
+                ((g.subst_diff_follows >= 0.9)
+                 & (g.subst_zero_accuracy <= 0.65)
+                 & (g.subst_shuffled_accuracy <= 0.65)).sum()
+            ),
+            "behavioural_retention": int((g.delayed_intact >= 0.9).sum()),
+            "n": int(len(g)),
+            "decode_mean": float(g.decode_pre_response.mean()),
+            "behav_mean": float(g.delayed_intact.mean()),
+            "follows_mean": float(g.subst_diff_follows.mean()),
+        }
+    trajectories = {
+        f"{sample}_seed{seed:03d}": {
+            int(r.delay): {
+                "behavioural": float(r.delayed_intact),
+                "information": float(r.decode_pre_response),
+                "functional": float(r.subst_diff_follows),
+                "zero": float(r.subst_zero_accuracy),
+                "shuffled": float(r.subst_shuffled_accuracy),
+                "state_norm": float(r.mean_state_norm),
+                "margin": float(r.mean_logit_margin),
+            } for r in g.itertuples()
+        } for (sample, seed), g in df.groupby(["sample", "seed"])
+    }
+    summary = {
+        "delays": [int(d) for d in delays],
+        "n_checkpoints": int(df.seed.nunique()),
+        "per_delay": per_delay,
+        "trajectories": trajectories,
+    }
+    (out_dir / "summary.json").write_text(json.dumps(summary, indent=2))
+    print(f"merged {len(parts)} shards -> {len(df)} rows, {df.seed.nunique()} checkpoints")
+    print(f"wrote {out_dir / 'delay_scaling.csv'} and {out_dir / 'summary.json'}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--delays", type=int, nargs="*", default=[3, 10, 30, 100])
@@ -66,10 +115,15 @@ def main() -> int:
     ap.add_argument("--num-shards", type=int, default=1)
     ap.add_argument("--batch-size", type=int, default=50)
     ap.add_argument("--results-dir", default="results/delay_scaling")
+    ap.add_argument("--merge", action="store_true", help="merge shard CSVs and exit")
     args = ap.parse_args()
 
     out_dir = ROOT / args.results_dir
     out_dir.mkdir(parents=True, exist_ok=True)
+    if args.merge:
+        _merge(out_dir, args.delays)
+        return 0
+
     csv_path = out_dir / f"delay_scaling_shard{args.shard}.csv"
 
     ckpts = _checkpoints()

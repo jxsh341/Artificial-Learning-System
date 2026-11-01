@@ -106,6 +106,7 @@ markers disappear. Controls include:
 | Acquire + retain is achievable with schedule-only changes (H7/H7b) | capture-and-hold with **per-episode alternating restore** (freeze at first delayed ≥ 0.9 probe; readout static while the representation adapts) meets **all** pre-registered criteria on **both** phenotype-iii sources — immediate 1.000, delayed 1.000, substitution follows 1.000, state representation preserved (norm ratio 0.87/1.07). The blocked-restore failure of H7 was a schedule artifact (§8f), corrected and preserved in the record |
 | Compatibility of shared-representation objectives | under alternating joint adaptation the two objectives co-exist (immediate gradients vanish once satisfied); blocked phases are what destroy co-acquired solutions — compatibility is achievable without architecture change |
 | Capture-and-hold generalises to the class it targets, and only to it (§8i) | across **all nine** failing checkpoints in the frozen study: "present-but-unused" checkpoints (answer decodes at 1.000, behaviour at chance) capture and pass the full rubric **3/3** (95% CI 0.292–1.000); "never-computed" and "computed-then-decayed" checkpoints (answer absent at response) capture **0/6** and 5/6 stay at chance. Applicability is predictable *in advance* from a state probe, not from the schedule. One answer-absent checkpoint passed by a different route: with the readout exactly frozen, encoder adaptation created the state representation (decode 0.53 → 1.000) — flagged for replication |
+| Retention separates into three timescales (§8k) | evaluation-only sweep over 23 checkpoints, no retraining: at delay 10 (3.3× trained) information, functional and behavioural retention all hold **23/23**; at delay 30 (10×) **information survives 23/23 but functional and behavioural retention only 11/23**, bimodally with no intermediates, and the failures are *confidently* wrong (margin 0.74 vs 0.38, state norm 1.65 vs 1.39) — disconnection, not forgetting; at delay 100 (33×) information itself is gone (decode ≈ 0.53) |
 | Two distinct acquisition routes, separated by which side of the interface adapts (§8j) | **capture-and-hold** (H7b): the readout learns utilisation *after* the answer is present — 3/3 phenotype-iii checkpoints. **Encoder-side acquisition** (B2): the readout is frozen and uninformative, and the encoder learns to write the answer into the state — 3/3 data-order replications, decode 0.53 → 1.000, head/C/D deltas exactly 0.0, substitution follows 1.000. Kept as separate hypotheses, not merged |
 | D800 is a reliable reference baseline (population study, §8h) | 20 fresh seeds, frozen config: **20/20** delayed ≥ 0.9 and immediate 1.000 (95% CI 0.832–1.000); with the original 3 seeds kept separate, **23/23** (95% CI 0.852–1.000). State reset → chance (mean 0.500) in every seed. Unseen size 22/23 ≥ 0.985; the single exception (seed 19, 0.560) is an encoder scale/degree calibration issue — immediate and delayed fail together, reset stays at chance, and degree-matched n=200 restores 1.000 |
 
@@ -148,7 +149,11 @@ rule (readout forgetting). 3/3 does not tightly bound the *population* success r
 > baseline: 20/20 seeds acquire the delayed capability (delayed ≥ 0.9) with immediate
 > accuracy 1.000 and state reset at chance (23/23 including the original seeds; 95% CI
 > 0.852–1.000), so the baseline is reliable within the tested regime rather than a
-> small-sample result.
+> small-sample result. Evaluation-only delay scaling separates retention into three
+> timescales: perfect on all three measures to delay 10 (23/23), information intact but use
+> lost in about half the population at delay 30 (23/23 vs 11/23, bimodal and confidently
+> wrong), and information itself lost by delay 100 (0/23) — so the "present but unused"
+> dissociation also appears as a function of time, not only of training.
 
 Open items: the mechanism of the ~20-episode readout oscillation; delay scaling; the
 single population seed with an unseen-size gap (encoder edge-density calibration); and the
@@ -231,12 +236,16 @@ and seeds.
   independent data orders — no capture event, readout exactly frozen (head/C/D deltas
   0.000), decode 0.53 → 1.000, full rubric pass. Treated as a second acquisition route,
   separate from H7b.
+- **Delay scaling complete** (§8k): evaluation-only, 23 checkpoints × delays 3/10/30/100.
+  Perfect retention on all three measures to delay 10 (23/23); at delay 30 information
+  survives 23/23 while functional and behavioural retention survive 11/23 (bimodal,
+  confidently wrong failures); at delay 100 information is lost (0/23).
 - Reproducibility verified: `scripts/verify_reproducibility.py` regenerates all published
   metrics from committed checkpoints + configs (12/12 exact matches).
-- Open items: delay scaling (pre-registered, running); the mechanism of the ~20-episode
-  readout oscillation; the single population seed with an unseen-size gap (encoder
-  edge-density calibration); how far the encoder-side acquisition route generalises beyond
-  its one checkpoint.
+- Open items: the mechanism of the ~20-episode readout oscillation; the single population
+  seed with an unseen-size gap (encoder edge-density calibration); how far the encoder-side
+  acquisition route generalises beyond its one checkpoint; whether the delay-30 failures are
+  a rotation of the state relative to the fixed readout (needs a direct geometric measure).
 - ~~Unseen-size anomaly~~ resolved: was an evaluation-protocol defect (generic blank not
   threaded into the generalization probe). Corrected, and the controlled size sweep
   (100→200, degree-matched) is flat — see `scripts/run_size_sweep.py` outputs in
