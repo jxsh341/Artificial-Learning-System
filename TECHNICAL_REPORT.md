@@ -1536,6 +1536,70 @@ points); the exact per-checkpoint transition is located only to the ladder grid.
 > exactly, max |diff| = 0.000 on both measures). The affected columns were re-measured
 > before any conclusion was drawn from them.
 
+### §8o results (`results/delay_transition/`)
+
+Consistency: the delay-30 rows reproduce the published §8k evaluation exactly
+(max |diff| = 0.000 on behaviour and decode over all 23 checkpoints). The per-dimension
+columns are from the corrected (post-variance-floor) re-run.
+
+**1. The behavioural boundary is a band, not a point.** `D_behav` distribution: 22 (6
+checkpoints), 26 (2), 30 (4), 40 (8), 50 (3). The 12 §8k delay-30 failures all fail by 30
+— six already at 22, two at 26 — while the 11 passers hold to 30 and fail at 40 (8) or 50
+(3). The bimodality §8k saw at delay 30 is now located in delay space: an early-failing
+group (22–30) and a late-failing group (40–50).
+
+**2. The information boundary is later, tighter, and independent of the behavioural
+groups.** Every checkpoint holds decode >= 0.95 through delay 40; `D_info` is 50 (12
+checkpoints) or 65 (11), and the cross-tab with delay-30 behaviour is mixed (D_info=50:
+7 fail / 5 pass; D_info=65: 5 fail / 6 pass). When the information dies is not determined
+by when utilisation dies. Behaviour fails before information in 22/23 (in one checkpoint
+both fall at 50).
+
+**3. Abruptness.** At the first sub-threshold ladder point, 11 checkpoints are already
+<= 0.65 and 12 sit at 0.68–0.88. With 15-step spacing across 50–65, the transition
+completes within one ladder interval for all 23 (from >= 0.95 to <= 0.88); no checkpoint
+declines gradually across multiple intervals. The shape *inside* an interval is not
+resolved by this ladder.
+
+**4. Which dimensions die first: all of them, together.** The corrected per-dimension
+analysis shows the code is written on a per-checkpoint subset of 3–8 dimensions (seed 0:
+dims {3,5,7} — exactly §7's 3-of-8; seed 3: 6 dims; population range 3–8, mean ~5.4).
+Carrier loss is **collective**: all 123 (checkpoint, carrier-dimension) pairs reach the
+loss criterion by delay 65 (most at 50 or 65), within one ladder interval of their
+checkpoint's `D_info`, with no consistent dimension ordering. The information does not
+die dimension-by-dimension; the whole code loses amplitude together.
+
+**5. The state converges to a common attractor.** Across-instance dispersion falls
+0.331 (delay 3) -> 0.030 (30) -> 0.00015 (100) — a >2000x collapse — while the mean state
+norm pins at ~2.22 from delay 30 onward (tanh saturation) and the mean state drifts only
+~0.19. Measured in absolute units (original seed 1): the class-mean gap along the
+strongest code dimension falls 1.014 (delay 3) -> 0.118 (30) -> 0.032 (50) -> 0.012 (65)
+-> 0.0014 (100) — a ~730x amplitude collapse at a *fixed* state norm.
+
+**6. Delay-100 failure is amplitude annealing, not code deletion.** The scale-free code
+survives the whole ladder — for seed 1, the strongest dimension still orders the classes
+in-sample (|r| = 1.0) at every delay including 100 — but its absolute amplitude drops
+~700x below the trained operating point, so a fixed-resolution held-out decoder reads
+chance (decode 0.42–0.68 at delay 100, chance-adjusted baseline ~0.52). Combined with (5):
+the answer is neither moved away from the readout nor selectively erased; the entire state
+contracts onto the SSM's saturated attractor and the answer-specific component decays
+exponentially within it.
+
+**7. Three failure boundaries, separately scheduled in delay space.** Behavioural
+(22–50, bimodal: 22–30 vs 40–50), functional (§8k: 11/23 still using the state at 30),
+informational (functional carrier variance lost at 40–65; decode threshold crossed at
+50/65). Behaviour precedes information in 22/23, and the informational boundary does not
+align with the behavioural groups. Delay-100 is therefore not an earlier instance of the
+delay-30 failure: it is a distinct mechanism (attractor contraction), reached after the
+delay-30 disconnection (boundary displacement) has already occurred in 12/23.
+
+**Bounded claims.** The ladder spacing bounds (3) and the exact `D` values to ±one
+interval. The |r| = 1.0 statement is the per-checkpoint maximum over 8 dimensions
+(selection) on 200 instances — evidence that an ordering survives, not a population
+estimate. No functional (substitution) measurement was taken at the newly located
+transition points, per the pre-registration. Evaluation-only throughout; no parameters
+were changed.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
