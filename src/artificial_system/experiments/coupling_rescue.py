@@ -449,6 +449,7 @@ def run_coupling_arm(
         "seed": seed,
         "data_seed": int(seed if data_seed is None else data_seed),
         "delay": int(delay),
+        "env_delays": {"delayed": int(env_del.delay), "immediate": int(env_imm.delay)},
         "source_checkpoint": ckpt.get("source_path"),
         "recorded_delayed_pre": ckpt.get("recorded_delayed"),
         "pre_analysis": pre_summary,

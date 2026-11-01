@@ -178,3 +178,38 @@ class TestConfigureProbe:
         assert "rubric" in summary and "pre_analysis" in summary
         assert (tmp_path / "training_probes.csv").exists()
         assert (tmp_path / "arm_summary.json").exists()
+
+
+class TestDelayOverride:
+    def test_delay_override_threads_through_without_mutating_cfg(self, tmp_path):
+        """§8l stage B: the intervention must run at the overridden delay
+        (training envs, capture probes, state summaries, final battery) while
+        the caller's config keeps the checkpoint's original delay."""
+        cfg = {
+            "graph": {"node_feature_dim": 2},
+            "gnn": {"layers": 2, "hidden_dim": 8, "aggregation": "sum"},
+            "ssm": {"state_dim": 4},
+            "readout": {"pooling": "attention"},
+            "task": dict(GEN, num_train=12, num_test=8, dataset_seed=123,
+                         delay=2, blank_mode="generic",
+                         reward_correct=1.0, reward_incorrect=0.0,
+                         stochastic_prob=0.0),
+            "training": {"batch_size": 4, "sequence_length": 4,
+                         "learning_rate": 1e-3, "weight_decay": 0.0,
+                         "grad_clip": 1.0, "record_aux_every": 0},
+        }
+        datasets = cr.build_datasets_from_cfg(cfg)
+        ck = {"model_state": _model().state_dict(), "seed": 0,
+              "recorded_delayed": 0.5, "source_path": "test"}
+        summary = cr.run_coupling_arm(
+            cfg, datasets, ck, "h7b_capture_alternate", tmp_path, seed=0,
+            schedule_spec={"stage3": {"episodes": 2}, "stage4": {"episodes": 2},
+                           "capture_probe_every": 1, "capture_threshold": 1.1},
+            delay_override=5,
+        )
+        assert summary["delay"] == 5
+        assert summary["env_delays"] == {"delayed": 5, "immediate": 0}
+        assert summary["episodes_total"] == 4
+        assert "decode_pre_response" in summary["pre_analysis"]
+        # the source config is untouched: the checkpoint's delay stays 2
+        assert cfg["task"]["delay"] == 2

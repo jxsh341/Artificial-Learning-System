@@ -66,11 +66,22 @@ def main() -> int:
         help="override the task delay for the whole intervention "
              "(training, capture probes, state summaries, final battery)",
     )
+    ap.add_argument(
+        "--merge", action="store_true",
+        help="rebuild summary.json from all completed run dirs and exit",
+    )
     args = ap.parse_args()
 
     cfg = load_config(ROOT / args.config)
     out_dir = ROOT / args.results_dir
     out_dir.mkdir(parents=True, exist_ok=True)
+    if args.merge:
+        merged: dict = {}
+        for summary_file in sorted(out_dir.glob("*__*/arm_summary.json")):
+            merged[summary_file.parent.name] = json.loads(summary_file.read_text())
+        (out_dir / "summary.json").write_text(json.dumps(merged, indent=2, default=float))
+        print(f"merged {len(merged)} runs -> {out_dir / 'summary.json'}")
+        return 0
     budget = int(cfg.get("study", {}).get("episodes_total", 400))
     half = budget // 2
     schedule_spec = {
