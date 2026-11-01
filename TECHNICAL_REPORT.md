@@ -1327,6 +1327,59 @@ is again a boundary translation or a loss of decodability).
 If any captured checkpoint is missing, that run is reported as missing, never silently
 excluded.
 
+### §8m results (`results/delay30_balanced/`)
+
+All 12 runs completed, all 12 with the same pattern:
+
+| measure | value |
+|---|---|
+| starting point (captured rescue state) | decode **1.000**, follows **1.000** in 12/12 |
+| delayed accuracy after the **first 10 pairs** | 0.48–0.52 (**12/12 already collapsed**) |
+| final delayed accuracy | 0.48–0.52 (**0/12** >= 0.9) |
+| final decodability | 0.29–0.52 |
+| follows / zero / shuffled | 0.48–0.52 / chance / chance |
+| immediate accuracy | 1.000 |
+| head / C / D delta | **0.000 exactly** in 12/12 (readout frozen throughout) |
+| GNN / gen / pooling delta | 0.89–1.55 / 0.10–0.19 / 0.29–0.72 |
+
+**Pre-registered outcome: 0/12 → S2.** The schedule imbalance is *not* the cause. With
+events balanced 1:1 (16:16 per pair) and the identical 100 delayed episodes, the rescue
+still collapses — within the first 10 pairs, before most of the encoder displacement has
+even accumulated. The trajectory is a fast destabilisation, not a gradual decay.
+
+**The failure is representational, not another boundary translation.** Post-stage geometry
+is degenerate in a qualitatively different way from §8l stage A: the class separation
+collapses (decode 0.29–0.52, at chance), the probe direction becomes ill-defined, and the
+boundary statistic loses meaning. After erosion the state no longer carries a linearly
+decodable answer at all — unlike the original delay-30 failures, where decode was 1.000
+and only the boundary was displaced.
+
+**Comparison with §8l stage B pins the mechanism.** The balanced stage moved the encoder by
+the same amount (GNN delta 0.89–1.55) as the episode-based stage (0.81–1.35) despite a 32x
+smaller immediate share, and with the same delayed exposure. The drift is therefore not
+primarily the immediate task's doing: **encoder-only updates at delay 30 are destabilising
+in themselves.** Under a frozen readout, small encoder changes compound across the 31-step
+delay, and the state leaves the region in which the answer is decodable at all. At delay 3
+the same recipe holds because 4-step compounding is forgiving (H7b 3/3 with *larger*
+encoder displacement, 1.29–3.64); at delay 30 it does not.
+
+**Bounded claims.**
+(1) Against the pre-registered rule, §8m is 0/12 → S2: the binding constraint at delay 30
+is not the joint schedule's event balance but **readout compatibility of the long-delay
+state** — the encoder cannot be updated at delay 30 under a frozen readout without
+destroying the rescue within a few episodes.
+(2) This sharpens the §8l reading into a precise trade-off: the rescue is *achievable*
+(readout-only, encoder frozen: 12/12) and *unmaintainable* (any encoder-only joint update:
+12/12). The readout can learn to use the state only while the encoder stands still; the
+encoder cannot move without breaking what the readout learned.
+(3) Which side of the balanced stage supplies the destabilising gradient (delayed or
+immediate) is open — both trained here; isolating it would need a delayed-only or
+immediate-only joint stage, which is outside the pre-registered design and is not claimed.
+(4) The H7b recipe remains valid at its design delay and does not transfer to delay 30 by
+schedule balancing alone; long-delay maintenance would require a mechanism that keeps the
+encoder and the frozen readout jointly calibrated (e.g. constrained or readout-aware
+encoder updates) — a candidate for future work, not a result.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`

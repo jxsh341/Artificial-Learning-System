@@ -109,6 +109,7 @@ markers disappear. Controls include:
 | Retention separates into three timescales (§8k) | evaluation-only sweep over 23 checkpoints, no retraining: at delay 10 (3.3× trained) information, functional and behavioural retention all hold **23/23**; at delay 30 (10×) **information survives 23/23 but functional and behavioural retention only 11/23**, bimodally with no intermediates, and the failures are *confidently* wrong (margin 0.74 vs 0.38, state norm 1.65 vs 1.39) — disconnection, not forgetting; at delay 100 (33×) information itself is gone (decode ≈ 0.53) |
 | The delay-30 failure is a displaced decision boundary, not a lost or rotated representation (§8l stage A) | all 23 checkpoints × delays 3/10/30: the probe direction and the effective readout direction are the same in every group (cos 0.975–0.982; failing 0.982 vs passing 0.980, so rotation is rejected). At delay 30 every failing checkpoint has **one class entirely misclassified** (\|boundary_vs_mid\| 0.52–1.75; 8 class-0-wrong, 4 class-1-wrong) with probe–readout agreement at chance (0.48/0.52), while passing checkpoints are aligned (max \|boundary_vs_mid\| 0.45, agreement 1.000). Failing margins and norms are larger, not smaller, so decay is rejected too. At delays 3 and 10 all 23 are aligned (max \|boundary_vs_mid\| 0.047 / 0.161) |
 | H7b at delay 30: the readout *can* rescue it, but the joint schedule is not delay-invariant (§8l stage B) | 12 failing checkpoints, delay 30 preserved throughout: **capture fired 12/12** (episodes 5–15) and the readout-only stage alone reached the full rescue signature **12/12** (delayed 1.000, decode 1.000, same 1.000, follows 1.000, zero/shuffled at chance). The pre-registered full-rubric outcome is **0/12**: the joint stage then erases it in 12/12 (delayed → 0.48–0.52, decode → 0.29–0.52) with the readout exactly frozen (deltas 0.000). Measured cause: 1:1 alternating *episodes* deliver 32:1 immediate:delayed supervised events at delay 30 (events per 32-step episode: 32/8/2/1 at delays 0/3/10/30) vs 4:1 at delay 3, where H7b passed 3/3 while moving the encoder *more* (GNN delta 1.29–3.64 vs 0.81–1.35) — the delayed task supplies too little gradient to defend a 31-step-compounded state, not too much encoder drift |
+| Event-balancing falsifies the schedule explanation: encoder-only updates at delay 30 are destabilising in themselves (§8m) | from the 12 captured rescue states (decode 1.000, follows 1.000), the joint stage rerun with 1:1 **response-event** balance (16:16 per pair, same 100 delayed episodes, readout frozen): **0/12**, each collapsing within the first 10 pairs (delayed 1.00 → 0.48–0.52), final decode 0.29–0.52 — the representation itself is lost (post-stage probe direction degenerate), unlike the original boundary-translation failures. GNN delta 0.89–1.55, same as the episode-based stage, with head/C/D exactly 0.000. The binding constraint is **readout compatibility of the long-delay state**: the rescue is achievable (readout-only, 12/12) and unmaintainable (any encoder-only joint update, 12/12) at delay 30 |
 | Two distinct acquisition routes, separated by which side of the interface adapts (§8j) | **capture-and-hold** (H7b): the readout learns utilisation *after* the answer is present — 3/3 phenotype-iii checkpoints. **Encoder-side acquisition** (B2): the readout is frozen and uninformative, and the encoder learns to write the answer into the state — 3/3 data-order replications, decode 0.53 → 1.000, head/C/D deltas exactly 0.0, substitution follows 1.000. Kept as separate hypotheses, not merged |
 | D800 is a reliable reference baseline (population study, §8h) | 20 fresh seeds, frozen config: **20/20** delayed ≥ 0.9 and immediate 1.000 (95% CI 0.832–1.000); with the original 3 seeds kept separate, **23/23** (95% CI 0.852–1.000). State reset → chance (mean 0.500) in every seed. Unseen size 22/23 ≥ 0.985; the single exception (seed 19, 0.560) is an encoder scale/degree calibration issue — immediate and delayed fail together, reset stays at chance, and degree-matched n=200 restores 1.000 |
 
@@ -242,19 +243,25 @@ and seeds.
   Perfect retention on all three measures to delay 10 (23/23); at delay 30 information
   survives 23/23 while functional and behavioural retention survive 11/23 (bimodal,
   confidently wrong failures); at delay 100 information is lost (0/23).
-- **Delay-30 geometry + intervention complete (§8l, two stages)**: stage A showed the
-  delay-30 failures are *translated* decision boundaries (directions aligned, one class
-  entirely wrong) — rotation and decay rejected. Stage B showed readout-only coupling
-  rescues all 12 at delay 30 (capture 12/12, full rescue signature 12/12), but the
-  pre-registered full rubric is 0/12 because the episode-based joint stage (32:1
-  immediate:delayed events at delay 30) erases the rescue while the readout stays frozen.
-  Open: an event-balanced joint stage; delay-100 representation loss.
+- **Delay-30 geometry + intervention complete (§8l + §8m)**: stage A showed the delay-30
+  failures are *translated* decision boundaries (directions aligned, one class entirely
+  wrong) — rotation and decay rejected. Stage B showed readout-only coupling rescues all 12
+  at delay 30 (capture 12/12, full rescue signature 12/12), but the full rubric is 0/12:
+  the episode-based joint stage (32:1 immediate:delayed events) erases the rescue with the
+  readout exactly frozen. §8m then falsified the schedule explanation directly: with 1:1
+  response-event balance the rescue still collapses within 10 pairs (0/12), decode itself
+  lost — encoder-only updates at delay 30 are destabilising in themselves. The rescue is
+  achievable and unmaintainable; readout compatibility of the long-delay state is the
+  binding constraint. Open: delay-100 representation loss; constrained/readout-aware
+  encoder updates for long-delay maintenance.
 - Reproducibility verified: `scripts/verify_reproducibility.py` regenerates all published
   metrics from committed checkpoints + configs (12/12 exact matches).
 - Open items: the mechanism of the ~20-episode readout oscillation; the single population
   seed with an unseen-size gap (encoder edge-density calibration); how far the encoder-side
-  acquisition route generalises beyond its one checkpoint; whether the delay-30 failures are
-  a rotation of the state relative to the fixed readout (needs a direct geometric measure).
+  acquisition route generalises beyond its one checkpoint; which side of the joint stage
+  supplies the destabilising gradient at delay 30 (§8m, open by design); long-delay
+  maintenance via constrained or readout-aware encoder updates; delay-100 representation
+  loss.
 - ~~Unseen-size anomaly~~ resolved: was an evaluation-protocol defect (generic blank not
   threaded into the generalization probe). Corrected, and the controlled size sweep
   (100→200, degree-matched) is flat — see `scripts/run_size_sweep.py` outputs in
