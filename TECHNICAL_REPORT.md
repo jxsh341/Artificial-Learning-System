@@ -1666,6 +1666,75 @@ No training, no parameter change (`scripts/run_transition_functional.py`,
 parameters change and no maintenance intervention runs here — the constrained-update
 experiment (§8q) follows only after these boundaries are causally confirmed.
 
+## 8q. Long-delay maintenance under state-budget-constrained encoder updates (pre-registered)
+
+**Question.** §8n located the destabiliser: a single *unconstrained* encoder step on the
+delayed objective destroys the delay-30 rescue. The user-proposed hypothesis: constraining
+encoder updates by their effect on the delayed representation (rather than balancing event
+counts, §8m) should allow maintenance *under genuine adaptation*. This may also produce the
+first architectural-relevant improvement of the programme, if it works without a new memory
+module — per the standing decision, no new module, no added state dimensionality; the D800
+frozen reference config is untouched.
+
+**Design.** The same 12 captured checkpoints and the *identical* delayed exposure as §8n
+`delayed_only`: 100 delayed episodes at delay 30, continuing the saved RNG stream, readout
+frozen (head/C/D deltas must be exactly 0.000). Three conditions, one variable at a time:
+
+1. **unconstrained** — §8n `delayed_only`, already measured (0/12, collapse at episode 1).
+   Used as the reference arm; *not re-run* (identical seeds, data stream, and optimiser by
+   construction).
+2. **`state_budget`** (constrained, readout/task-aware) — a per-step backtracking line
+   search. After each proposed encoder update, the step is scaled by α ∈ {1, 1/2, …, 1/128,
+   0} and accepted at the largest α whose **cumulative displacement** of the response-step
+   delayed states on a fixed 16-instance held-out probe batch stays within budget ε of the
+   *captured* model's states on the same batch: α = 0 (full rejection) is admissible.
+   *Primary budget ε = 0.2* (~10% of the response-step state norm ≈ 2.22, and of the same
+   order as the mean-state drifts §8o measured across the 3→30 transition, 0.19–0.34);
+   *secondary ε = 0.05* probes a stricter regime. Both are pre-registered here, before any
+   run.
+3. **`matched_raw`** (magnitude-matched control, no state awareness) — at each step, the
+   raw delayed-gradient update is scaled to exactly the per-step accepted-update norm that
+   `state_budget` accepted at the same episode (paired runs, same seeds/data/optimiser). Any
+   outcome difference between arms 2 and 3 is then attributable to *direction*
+   (state-awareness), not to step size.
+
+**Per-step recorded:** accepted α, accepted/update-norm ratio, cumulative displacement,
+delayed margin at the response step (all on the probe batch). Probe schedule as §8n
+(episodes 1–5, then every 10); pre/post full state summaries; final substitution battery;
+full pre-registered rubric (`cr.success_rubric`); parameter deltas; post geometry.
+
+**Success criterion (fixed):** full rubric at post AND delayed accuracy = 1.000 AND GNN
+parameter delta ≥ 0.05 (genuine adaptation, not de-facto freezing). Freezing is scored
+separately: if > 90% of steps are rejected (α = 0) and GNN delta < 0.05, the outcome is
+labelled **no-admissible-direction** (the rescue point is a constrained optimum of the
+coupled system), not success.
+
+**Interpretation rules (fixed before running):**
+
+- **12/12 success with real parameter movement** → maintenance under adaptation is
+  achievable via state-budget-constrained encoder updates; the `matched_raw` outcome
+  attributes it to state-awareness vs step size.
+- **`matched_raw` also passes** → the effect is step size (dose), not state-awareness;
+  the §8n failure is then simply about update magnitude, and the constrained update adds
+  nothing the same norm would not.
+- **`state_budget` passes, `matched_raw` fails** → state-aware direction is the operative
+  factor: the delayed gradient's *large* components are precisely the code-rewriting ones.
+- **0/12 both** → the rescue is not maintainable under any tested encoder update at any
+  tested budget; strengthens "readout compatibility is a hairline constraint".
+- Partial outcomes: rank-separated as usual, reported per checkpoint.
+
+**Bounded claims.** The constraint is measured on a 16-instance probe batch and at the
+response step only — it constrains what the probe can see, and states outside the probe's
+support are unconstrained. ε is norm-relative on the *displacement* vector, not
+direction-wise; a rotation within budget is admissible by design (boundary translations are
+the survivable failure mode, §8n immediate_only). ε = 0.2/0.05 are operational choices,
+justified above, not biological claims. The unconstrained reference is §8n's arm, not a
+fresh run — if any §8q infrastructure difference emerged it would invalidate that reuse and
+be recorded before reporting.
+
+(`scripts/run_accuracy_maintenance.py` → renamed at implementation; results in
+`results/delay30_maintenance/`.)
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
