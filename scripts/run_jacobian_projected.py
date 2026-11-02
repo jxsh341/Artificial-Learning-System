@@ -79,17 +79,15 @@ def probe_displacement(model, probe_ds, s_cap, delay, marker_dim, generic_blank)
 
 def response_state_jacobian(model, probe_ds, delay, marker_dim, generic_blank,
                             params, batched: bool = False,
-                            per_instance: bool = True) -> torch.Tensor:
+                            per_instance: bool = True,
+                            vmap_within_instance: bool = False) -> torch.Tensor:
     """J = d s_flat / d theta in R^(128 x P) at the current parameters.
 
     Strategies (mathematically identical; the registration defines J, not the
-    autograd route):
-      - per_instance=True (default): one small graph per probe instance, its 8
-        output rows vmapped with is_grads_batched.  The big-graph backward is
-        ~5-8x its forward (op-dispatch overhead), so this is ~an order of
-        magnitude faster at the same constraint set.
-      - batched=True: is_grads_batched over all 128 outputs of one graph.
-      - otherwise: per-coordinate backward loop on the one big graph.
+    autograd route).  Measured per step on this machine: big-graph loop 276 s,
+    big-graph is_grads_batched 190 s, per-instance vmapped 136 s,
+    per-instance plain backwards 84 s (default) -- backward op-dispatch
+    overhead dominates everywhere (~8x forward), so small graphs win.
     """
     if per_instance:
         from artificial_system.data.graph_tasks import ConnectivityDataset
@@ -113,10 +111,19 @@ def response_state_jacobian(model, probe_ds, delay, marker_dim, generic_blank,
                 _, state, _ = model.step(blank, state)
             s1 = state.reshape(-1)
             n1 = s1.numel()
-            grads = torch.autograd.grad(
-                s1, params, grad_outputs=torch.eye(n1), is_grads_batched=True,
-            )
-            rows.append(torch.cat([g.reshape(g.shape[0], -1) for g in grads], dim=1))
+            if vmap_within_instance:
+                grads = torch.autograd.grad(
+                    s1, params, grad_outputs=torch.eye(n1), is_grads_batched=True,
+                )
+                rows.append(torch.cat([g.reshape(g.shape[0], -1) for g in grads], dim=1))
+            else:
+                # plain per-coordinate backwards on the small graph: measured
+                # faster than is_grads_batched (vmap overhead dominates)
+                rows.append(torch.stack([
+                    torch.cat([g.reshape(-1) for g in torch.autograd.grad(
+                        s1[j], params, retain_graph=(j < n1 - 1))])
+                    for j in range(n1)
+                ]))
         if was_training:
             model.train()
         return torch.cat(rows, dim=0).detach()

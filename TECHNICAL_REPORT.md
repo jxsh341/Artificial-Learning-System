@@ -1965,6 +1965,17 @@ only — no budget, no scaling, no architecture change; §8q's results remain th
 magnitude-constrained reference (`scripts/run_jacobian_projected.py`,
 `results/delay30_jacobian/`).
 
+> **Implementation verification (recorded before results were reported).** At a captured
+> point, with a synthetic gradient at training scale, the projected update satisfies
+> ||J u|| / ||J g|| = 2.7e-05 (the state-Jacobian is genuinely nulled); J has 106/128
+> singular values above the pinv rcond, so the constraint set is nearly full-rank and the
+> projection is well-conditioned. Per-step autograd route: per-instance plain backwards
+> (measured 84 s/step vs 276 s for the big-graph loop; the registered J is identical).
+> Diagnostic contrast measured at the same point: a *random* gradient of matched norm has
+> projection ratio 0.998 (barely state-aligned), while the actual delayed-loss gradient
+> has ratio 0.04–0.43 — the delayed objective is, to first order, overwhelmingly a
+> state-writing objective.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
