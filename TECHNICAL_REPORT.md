@@ -1813,6 +1813,69 @@ be recorded before reporting.
 > accepted-α definition is unchanged and the constraint semantics are exactly as
 > pre-registered in the definitional clarification.
 
+### §8q results (`results/delay30_maintenance/`)
+
+48 runs (12 checkpoints × {budget, matched control} × {ε = 0.2, 0.05}), full descending
+ladder scan, readout frozen in every run (head/C/D delta exactly 0.000). Immediate accuracy
+1.000 and the state-norm ratio ≈ 1.00 in every passing run.
+
+**Headline 1 — the constraint works, and its operating point is the trade-off.**
+
+| ε | full rubric (final battery) | decode = 1.000 | mean accepted step | rejections | displacement (mean → max) |
+|---|---|---|---|---|---|
+| 0.2 | **7/12** | **24/24** | 0.0011–0.0029 | 0.01–0.93 | ~0.19 → 0.200 (wall) |
+| 0.05 | **11/12** | 24/24 | ~0–0.0009 | 0.30–0.99 | ~0.05 → 0.050 (wall) |
+
+Under the registered success criterion (full rubric AND delayed 1.000 AND GNN delta
+≥ 0.05): ε = 0.2 gives **6/12 successes** (2 no-admissible-direction, 4 intermediate);
+ε = 0.05 gives **1/12** (7 no-admissible-direction, 4 intermediate). Unconstrained (§8n):
+0/12, instant. The line search drives the cumulative displacement to the budget wall and
+keeps it there (disp_mean ≈ ε in every run) — the constrained dynamics walk along the
+cliff edge. A tighter budget preserves function but freezes adaptation; a looser one
+adapts (GNN delta up to 0.119) but half the population oscillates off the edge.
+
+**Headline 2 — the ε = 0.2 "failures" are oscillation, not collapse.** In all 5 rubric
+failures at ε = 0.2 (seeds 0, 14, 16, 17, 21), decode is 1.000 — the representation is
+intact — and the probe trajectories show delayed accuracy **switching between 1.00 and
+~0.50** across training (seed 0: 1.00 for ep 3–5, chance 10–40, 1.00 again 50–80, chance
+90–100; seed 16 bounces throughout; seed 17 holds 1.00 to ep 20 then fails from 40; seeds
+14/21 similar). The final battery catches a phase. This is the same ~20–40-episode readout
+oscillation noted in §8l — now seen from the inside: under budget-constrained drift the
+state rides the displacement wall and the frozen readout's access oscillates with it. The
+information does not leave; access comes and goes. (The one checkpoint that fails at
+*both* budgets, seed 14, is the population's most fragile: at ε = 0.05 its GNN delta is
+0.0012 with 99% rejections — nearly frozen — and it still sits outside the functional
+region at the final battery, decode 1.000.)
+
+**Headline 3 — the matched control is degenerate, and what that means.** The
+magnitude-matched control reproduced the budget arm's trajectory **exactly** (24/24
+identical GNN deltas; step-level raw and accepted norms identical to 0.0e+00 for every
+step of every pair). The reason is structural: the budget constraint acts *only through
+per-step scaling* (α rescales the raw gradient; direction is untouched), so copying the
+accepted norms reproduces the same trajectory bit-for-bit. The pre-registered rule
+"matched_raw passes → effect is step size, not state-awareness" therefore fires *formally*
+but carries no independent evidence: the control tested nothing. What the experiment
+actually establishes is a **dose** result within one family — scaling the delayed
+gradient: unconstrained movement (§8n) collapses instantly; a 0.2 displacement wall
+maintains 7/12 with real adaptation; a 0.05 wall maintains 11/12 at near-zero movement.
+Whether a genuinely *different* update direction (e.g. projected orthogonal to the
+state-Jacobian) can maintain with *large* steps remains untested — recorded as the
+carried-forward question; the §8n fact that direction is not the issue at tiny steps
+(immediate_only's decode-preserving drift) is the only directional evidence so far.
+
+**Updated open item.** The §8l oscillation and §8q's access oscillation are the same
+phenomenon observed at two operating points (readout-only 20-episode cycles; budget-riding
+in-and-out switching). Mechanistic handle: access flips when the drifting state crosses
+the frozen readout's decision boundary — the §8l stage-A geometry (boundary translation)
+is the natural instrument to verify this phase-by-phase, untested here.
+
+**Bounded claims.** Success/failure is scored by the pre-registered final-battery rubric;
+the oscillation reinterpretation applies to trajectories (pre-registered diagnostics), not
+to a relaxation of the rubric. The budget is enforced on a 16-instance probe batch at the
+response step; states outside its support are unconstrained and the wall-riding behaviour
+is measured only there. ε values are operational, not claims about biology. No
+architectural change was made; the D800 reference config is untouched.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
