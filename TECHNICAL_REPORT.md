@@ -1876,6 +1876,95 @@ response step; states outside its support are unconstrained and the wall-riding 
 is measured only there. ε values are operational, not claims about biology. No
 architectural change was made; the D800 reference config is untouched.
 
+## 8r. Direction at full step size: state-Jacobian-projected delayed updates (pre-registered)
+
+**H8r:** projecting delayed-task encoder gradients onto directions that preserve the
+state–readout relationship allows full-magnitude encoder adaptation without destroying
+persistent-state utilisation. §8q established that magnitude reduction preserves function
+by restricting movement; §8r tests whether *useful admissible directions exist* — i.e.
+whether the encoder can adapt freely while the frozen readout keeps access to its
+representation. No memory module, no added state dimensionality, D800 config untouched.
+
+**Arms (2):**
+
+1. **`jacobian_projected`** — the delayed objective's gradient, projected before the
+   optimiser step (definition below). No displacement budget, no magnitude scaling: the
+   projected gradient is used as-is (α = 1).
+2. **unconstrained baseline** — §8n `delayed_only` (already measured: 0/12, collapse at
+   episode 1, GNN delta 0.85–1.15). Reused, not re-run (identical seeds, data stream,
+   optimiser, exposure), as in §8q.
+
+Everything else fixed: the 12 captured checkpoints, 100 delayed episodes at delay 30 from
+the saved RNG stream, frozen readout (head/C/D deltas must be exactly 0.000), identical
+optimiser settings, identical evaluation battery (the full substitution battery is
+mandatory).
+
+**The projection, defined exactly.** Trainable set = the `encoder_only` groups:
+`graph_encoder` (25,280 params), `pooling` (4,225), `temporal_model` state-generation
+(520), total 30,025 — everything except head and SSM output (C, D).
+
+- *Protected quantity:* the **response-step state** on the same 16-instance held-out probe
+  batch as §8q, **all 8 state coordinates** (128 constraints). Not a carrier subset: the
+  frozen readout consumes the whole state vector through C, and §8m showed the entire
+  state matters at delay 30; the §8o carrier analysis is a delay-3 descriptive tool, not a
+  protection spec. Intermediate trial states are *not* protected — drift there is the
+  mechanism of genuine adaptation.
+- *Jacobian:* J = ∂s_flat/∂θ ∈ R^{128×30,025}, evaluated at the **current** parameters
+  before every step, **concatenated across the three groups** (a joint projection; per
+  -group projections would leave cross-group state effects alive — the failure mode
+  flagged in design).
+- *Projected update:* u = g − Jᵀ(JJᵀ)⁻¹Jg, computed by least squares
+  (`pinv`, rcond 1e-6; if J is rank-deficient the projection protects exactly the
+  reachable directions — the correct degenerate behaviour). Applied to the gradient
+  **after** the same gradient clipping §8n used and **before** Adam; Adam's moments
+  accumulate projected gradients (recorded as part of the definition). Per step the raw
+  gradient norm and the projection ratio ||u||/||g|| are recorded.
+- *First-order caveat, fixed in advance:* J protects the state to first order at the
+  current point; trajectory-level (cumulative, second-order) drift is precisely what the
+  oscillation and collapse outcomes distinguish.
+
+**Measurements per run:** probe schedule as §8n (episodes 1–5, then every 10) with delayed
+accuracy and state-reset control; decodability at the collapse-probe protocol (§8n);
+per-step raw gradient norm, projection ratio, and the **achieved** state displacement
+(same metric as §8q — measured, never constrained); pre/post state summaries; final full
+substitution battery; the registered rubric; parameter deltas by group; immediate accuracy.
+
+**Pre-registered interpretation.** Adaptation bands: substantial = GNN delta ≥ 0.5
+(≈ half the unconstrained §8n displacement); negligible = < 0.05 (§8q's
+genuine-adaptation floor); intermediate between.
+
+- **A — preservation with substantial adaptation** (≥ 8/12 rubric PASS with GNN delta
+  ≥ 0.5): H8r confirmed — the encoder adapts freely while access is preserved.
+- **B — preservation with negligible adaptation** (PASS, GNN delta < 0.05): technically
+  successful but the full-step question is untested — the projection removed essentially
+  everything; report the ratio statistics.
+- **C — preservation with intermediate adaptation** (PASS, delta in [0.05, 0.5)):
+  partial support — admissible directions exist but are narrow; report per-checkpoint
+  ratios and deltas.
+- **D — functional oscillation** (rubric FAIL with decode intact and ≥ 3 transitions
+  between ≥ 0.9 and ≤ 0.6 across the 15 scheduled probes): the protected direction is
+  insufficient cumulatively — first-order protection does not survive trajectory drift;
+  the §8q phenotype reappears without a magnitude wall.
+- **E — representational collapse** (decode < 0.95, the §8n signature): H8r rejected —
+  Jacobian protection fails at the trajectory level.
+
+The projection ratio is a *reported diagnostic, never a success criterion*: behavioural
+and causal measurements determine success. Partial outcomes are rank-separated as usual.
+
+**Seed 14 — pre-registered as a separate diagnostic case.** It failed §8q at both budgets
+with GNN delta 0.0012 (ε = 0.05), so displacement magnitude alone cannot explain its
+sensitivity. If §8r maintains seed 14 where magnitude constraints could not, that is
+direct evidence that direction matters more than magnitude for at least that checkpoint;
+if it fails here too, its fragility is direction-general. Either result is reported
+individually and is not averaged into the population statistics.
+
+**Bounded claims.** Protection is scoped to the probe batch's response-step states; states
+outside its support are unconstrained by construction. n = 12, one paired comparison per
+checkpoint. The ratio statistic is descriptive. This experiment changes update *direction*
+only — no budget, no scaling, no architecture change; §8q's results remain the
+magnitude-constrained reference (`scripts/run_jacobian_projected.py`,
+`results/delay30_jacobian/`).
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
