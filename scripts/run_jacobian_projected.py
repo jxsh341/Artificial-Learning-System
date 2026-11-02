@@ -78,13 +78,48 @@ def probe_displacement(model, probe_ds, s_cap, delay, marker_dim, generic_blank)
 
 
 def response_state_jacobian(model, probe_ds, delay, marker_dim, generic_blank,
-                            params, batched: bool = False) -> torch.Tensor:
+                            params, batched: bool = False,
+                            per_instance: bool = True) -> torch.Tensor:
     """J = d s_flat / d theta in R^(128 x P) at the current parameters.
 
-    batched=True uses is_grads_batched (vmap over the backward); it fails on
-    this graph (in-place graph ops), so the default is the per-coordinate
-    backward loop -- mathematically identical, just slower.
+    Strategies (mathematically identical; the registration defines J, not the
+    autograd route):
+      - per_instance=True (default): one small graph per probe instance, its 8
+        output rows vmapped with is_grads_batched.  The big-graph backward is
+        ~5-8x its forward (op-dispatch overhead), so this is ~an order of
+        magnitude faster at the same constraint set.
+      - batched=True: is_grads_batched over all 128 outputs of one graph.
+      - otherwise: per-coordinate backward loop on the one big graph.
     """
+    if per_instance:
+        from artificial_system.data.graph_tasks import ConnectivityDataset
+        was_training = model.training
+        model.eval()
+        rows = []
+        for i in range(len(probe_ds)):
+            ds1 = ConnectivityDataset(
+                graphs=[probe_ds.graphs[i]], labels=probe_ds.labels[i:i + 1].clone(),
+            )
+            idxs = [0]
+            state = model.initial_state(1)
+            generic = observe_instances(ds1, idxs, keep_markers=False,
+                                        marker_dim=marker_dim, generic_blank=generic_blank)
+            _, state, _ = model.step(generic, state)
+            obs = observe_instances(ds1, idxs, True, marker_dim)
+            _, state, _ = model.step(obs, state)
+            for _ in range(delay):
+                blank = observe_instances(ds1, idxs, keep_markers=False,
+                                          marker_dim=marker_dim, generic_blank=generic_blank)
+                _, state, _ = model.step(blank, state)
+            s1 = state.reshape(-1)
+            n1 = s1.numel()
+            grads = torch.autograd.grad(
+                s1, params, grad_outputs=torch.eye(n1), is_grads_batched=True,
+            )
+            rows.append(torch.cat([g.reshape(g.shape[0], -1) for g in grads], dim=1))
+        if was_training:
+            model.train()
+        return torch.cat(rows, dim=0).detach()
     was_training = model.training
     model.eval()
     idxs = list(range(len(probe_ds)))
