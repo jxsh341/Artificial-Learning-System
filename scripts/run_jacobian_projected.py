@@ -101,10 +101,12 @@ def response_state_jacobian(model, probe_ds, delay, marker_dim, generic_blank,
     s = state.reshape(-1)
     n = s.numel()
     if batched:
+        # is_grads_batched returns one batched grad per input parameter:
+        # g_k has shape [n_outputs, *params[k].shape]
         grads = torch.autograd.grad(
             s, params, grad_outputs=torch.eye(n), is_grads_batched=True,
         )
-        J = torch.stack([g.reshape(-1) for g in grads])
+        J = torch.cat([g.reshape(g.shape[0], -1) for g in grads], dim=1)
     else:
         rows = []
         for j in range(n):
