@@ -1732,8 +1732,14 @@ justified above, not biological claims. The unconstrained reference is §8n's ar
 fresh run — if any §8q infrastructure difference emerged it would invalidate that reuse and
 be recorded before reporting.
 
-(`scripts/run_accuracy_maintenance.py` → renamed at implementation; results in
-`results/delay30_maintenance/`.)
+(`scripts/run_state_budget.py`, results in `results/delay30_maintenance/`.)
+
+> **Definitional clarification (recorded before implementation and before any result).**
+> The "cumulative displacement" of the state-budget constraint is the mean over the 16
+> probe instances of the per-instance L2 distance ||s_i − s_cap,i||_2 between the current
+> and captured response-step states, i.e. a per-instance norm (state norm ≈ 2.22 → ε = 0.2
+> is ~10% per instance). The α ladder is {1, 1/2, 1/4, …, 1/128, 0}; α = 0 means the step
+> is fully rejected.
 
 ## 9. Reproduction
 
