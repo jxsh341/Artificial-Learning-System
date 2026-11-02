@@ -78,8 +78,13 @@ def probe_displacement(model, probe_ds, s_cap, delay, marker_dim, generic_blank)
 
 
 def response_state_jacobian(model, probe_ds, delay, marker_dim, generic_blank,
-                            params, batched: bool = True) -> torch.Tensor:
-    """J = d s_flat / d theta in R^(128 x P) at the current parameters."""
+                            params, batched: bool = False) -> torch.Tensor:
+    """J = d s_flat / d theta in R^(128 x P) at the current parameters.
+
+    batched=True uses is_grads_batched (vmap over the backward); it fails on
+    this graph (in-place graph ops), so the default is the per-coordinate
+    backward loop -- mathematically identical, just slower.
+    """
     was_training = model.training
     model.eval()
     idxs = list(range(len(probe_ds)))
