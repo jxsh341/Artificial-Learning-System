@@ -70,7 +70,7 @@ class BudgetSearch:
     """
 
     def __init__(self, model, optimizer, eps, probe_states_cap, probe_ds,
-                 delay, marker_dim, generic_blank):
+                 delay, marker_dim, generic_blank, fast: bool = False):
         self.model = model
         self.optimizer = optimizer
         self.eps = float(eps)
@@ -79,9 +79,11 @@ class BudgetSearch:
         self.delay = int(delay)
         self.marker_dim = marker_dim
         self.generic_blank = generic_blank
+        self.fast = bool(fast)
         self.trainable = [p for p in model.parameters() if p.requires_grad]
         self.orig_step = optimizer.step
         self.step_idx = 0
+        self.disp0 = 0.0  # cumulative displacement of the accepted state (0 at capture)
         self.log: list[dict] = []
         optimizer.step = self.step  # type: ignore[method-assign]
 
@@ -98,25 +100,79 @@ class BudgetSearch:
         return st["pre_response"].detach().float()
 
     @torch.no_grad()
+    def _disp_for(self, alpha: float, theta_pre, deltas) -> tuple[float, float]:
+        """Return (mean displacement, alpha) after setting params = pre + alpha*deltas."""
+        for p, t, d in zip(self.trainable, theta_pre, deltas):
+            p.copy_(t + alpha * d)
+        disp = float((self._displacement() - self.s_cap).norm(dim=-1).mean())
+        return disp, alpha
+
+    @torch.no_grad()
+    def _accept_fast(self, theta_pre, deltas, disp0: float) -> tuple[float, float]:
+        """Crossing-estimate scan; returns (alpha, displacement). Supports α=0."""
+        import math
+
+        eps = self.eps
+        disp1, _ = self._disp_for(1.0, theta_pre, deltas)
+        if disp1 <= eps:
+            return 1.0, disp1
+        alpha_lo = ALPHA_LADDER[-2]  # 1/128 (α=0 is handled separately)
+        disp_lo, _ = self._disp_for(alpha_lo, theta_pre, deltas)
+        if disp_lo > eps:
+            return 0.0, disp_lo
+        span = max(disp1 - disp_lo, 1e-12)
+        frac = min(max((eps - disp_lo) / span, 0.0), 1.0)
+        a_cross = alpha_lo * (1.0 / alpha_lo) ** frac
+        k = int(math.ceil(-math.log2(max(a_cross, alpha_lo))))
+        k = min(max(k, 1), 7)
+        alpha, disp = None, None
+        for kk in range(k, 8):  # walk down if the estimate was optimistic
+            a = 2.0 ** -kk
+            d, _ = self._disp_for(a, theta_pre, deltas)
+            if d <= eps:
+                alpha, disp = a, d
+                break
+        if alpha is None:
+            for p, t in zip(self.trainable, theta_pre):
+                p.copy_(t)
+            return 0.0, disp_lo
+        # attempt successive rungs upward while they still qualify
+        while alpha < 1.0:
+            a_up = min(alpha * 2.0, 1.0)
+            d_up, _ = self._disp_for(a_up, theta_pre, deltas)
+            if d_up <= eps:
+                alpha, disp = a_up, d_up
+            else:
+                for p, t, d in zip(self.trainable, theta_pre, deltas):
+                    p.copy_(t + alpha * d)
+                return alpha, disp
+        return alpha, disp
+
+    @torch.no_grad()
     def step(self, closure=None):  # noqa: D102
         theta_pre = [p.detach().clone() for p in self.trainable]
         out = self.orig_step(closure)
         deltas = [p.detach() - t for p, t in zip(self.trainable, theta_pre)]
 
-        accepted = None
-        for alpha in ALPHA_LADDER:
-            for p, t, d in zip(self.trainable, theta_pre, deltas):
-                p.copy_(t + alpha * d)
-            disp = float((self._displacement() - self.s_cap).norm(dim=-1).mean())
-            if disp <= self.eps:
-                accepted = (alpha, disp)
-                break
-        if accepted is None:  # unreachable: alpha=0 gives disp_prev <= eps
-            for p, t in zip(self.trainable, theta_pre):
-                p.copy_(t)
-            accepted = (0.0, float("nan"))
+        if self.fast:
+            alpha, disp = self._accept_fast(theta_pre, deltas, disp0)
+        else:
+            accepted = None
+            for alpha in ALPHA_LADDER:
+                d, _ = self._disp_for(alpha, theta_pre, deltas)
+                if d <= self.eps:
+                    accepted = (alpha, d)
+                    break
+            if accepted is None:  # unreachable: α=0 restores the accepted state
+                for p, t in zip(self.trainable, theta_pre):
+                    p.copy_(t)
+                accepted = (0.0, float("nan"))
+            alpha, disp = accepted
+            if alpha == 0.0:
+                for p, t in zip(self.trainable, theta_pre):
+                    p.copy_(t)
+        self.disp0 = disp
 
-        alpha, disp = accepted
         raw_norm = float(torch.sqrt(sum(d.norm() ** 2 for d in deltas)))
         acc_norm = alpha * raw_norm
         self.log.append({
@@ -164,7 +220,7 @@ class MatchedRawControl:
 
 
 def run_one(ck_path: Path, tag: str, run_dir: Path, budget: float,
-            episodes: int) -> dict:
+            episodes: int, fast: bool = True) -> tuple[dict, list[float]]:
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -232,7 +288,7 @@ def run_one(ck_path: Path, tag: str, run_dir: Path, budget: float,
     snap_start = cr.param_group_snapshot(model)
 
     searcher = BudgetSearch(model, optimizer, budget, s_cap, probe_ds,
-                            delay, marker_dim, generic_blank)
+                            delay, marker_dim, generic_blank, fast=fast)
     trainer = Trainer(model, env, optimizer, train_cfg)
 
     rows: list[dict] = []
@@ -265,6 +321,7 @@ def run_one(ck_path: Path, tag: str, run_dir: Path, budget: float,
     summary = {
         "arm": f"budget_eps{budget}",
         "budget": float(budget),
+        "scan": "fast_crossing" if fast else "full_ladder",
         "seed": seed,
         "delay": int(delay),
         "source_checkpoint": str(ck_path.relative_to(ROOT)),
@@ -388,6 +445,45 @@ def run_control(ck_path: Path, tag: str, run_dir: Path, budget: float,
     return summary
 
 
+def _alpha_seq(run_dir: Path) -> list[float]:
+    import pandas as pd
+
+    return [float(x) for x in pd.read_csv(run_dir / "step_log.csv")["alpha"]]
+
+
+def calibrate(budget: float, episodes: int, tags: list[str] | None = None) -> list[dict]:
+    """Run the full descending ladder scan and the crossing-estimate scan on
+    identical step streams and compare step for step (report §8q amendment)."""
+    import tempfile
+
+    ck_map = dict(captured_checkpoints())
+    if tags is None:
+        tags = sorted(ck_map)[:1] + sorted(ck_map)[-1:]  # first and last checkpoint
+    results = []
+    for tag in tags:
+        ck_path = ck_map[tag]
+        runs = {}
+        for name, fast in (("full_ladder", False), ("fast_crossing", True)):
+            with tempfile.TemporaryDirectory() as td:
+                run_one(ck_path, tag, Path(td), budget, episodes, fast=fast)
+                runs[name] = _alpha_seq(Path(td))
+        a_f, a_x = runs["full_ladder"], runs["fast_crossing"]
+        agree = len(a_f) == len(a_x) and all(x == y for x, y in zip(a_f, a_x))
+        results.append({
+            "tag": tag, "budget": float(budget), "episodes": int(episodes),
+            "n_steps": len(a_f),
+            "agree": bool(agree),
+            "disagreements": [
+                {"step": i, "full": x, "fast": y}
+                for i, (x, y) in enumerate(zip(a_f, a_x)) if x != y
+            ],
+        })
+        print(f"[cal] {tag} eps{budget}: {len(a_f)} steps, "
+              f"agree={agree}, " + (f"disagreements={results[-1]['disagreements'][:4]}"
+                                    if not agree else ""), flush=True)
+    return results
+
+
 def _merge(out_dir: Path) -> None:
     merged: dict = {}
     for f in sorted(out_dir.glob("*__*/arm_summary.json")):
@@ -404,12 +500,25 @@ def main() -> int:
     ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--num-shards", type=int, default=1)
     ap.add_argument("--merge", action="store_true")
+    ap.add_argument("--calibrate", action="store_true",
+                    help="run the full-ladder vs crossing-estimate calibration "
+                         "check and exit (writes calibration.json)")
     args = ap.parse_args()
 
     out_dir = ROOT / args.results_dir
     out_dir.mkdir(parents=True, exist_ok=True)
     if args.merge:
         _merge(out_dir)
+        return 0
+    if args.calibrate:
+        cal_results = []
+        for budget in [float(b) for b in args.budgets.split(",")]:
+            cal_results.extend(calibrate(budget, episodes=15))
+        (out_dir / "calibration.json").write_text(
+            json.dumps(cal_results, indent=2, default=float))
+        agree_all = all(r["agree"] for r in cal_results)
+        print(f"CALIBRATION: {'AGREE' if agree_all else 'DISAGREE'} "
+              f"({sum(r['agree'] for r in cal_results)}/{len(cal_results)} tag/eps pairs)")
         return 0
 
     budgets = [float(b) for b in args.budgets.split(",")]

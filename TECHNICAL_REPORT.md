@@ -1783,6 +1783,23 @@ be recorded before reporting.
 > and captured response-step states, i.e. a per-instance norm (state norm ≈ 2.22 → ε = 0.2
 > is ~10% per instance). The α ladder is {1, 1/2, 1/4, …, 1/128, 0}; α = 0 means the step
 > is fully rejected.
+>
+> **Procedural amendment (recorded BEFORE any §8q run completed; all initial shard runs
+> died of system memory exhaustion with no completed arm, so no carried-over results
+> exist).** The descending α scan costs 4–6 full probe captures per step (~36 s/step,
+> >30 h over the grid) and the running machine cannot support the parallelism that pace
+> requires. The accepted-α procedure is amended to a **crossing-estimate scan** with the
+> same accepted-α definition (largest ladder α with displacement ≤ ε): (1) measure
+> disp(α=1), accept 1 if within ε; (2) else measure disp(α=1/128) — if beyond ε, no rung
+> qualifies and α=0; (3) else linearly interpolate the crossing in log2-α between the two
+> measured points, take the largest ladder rung at or below the estimate, verify it by
+> capture, then attempt successive rungs upward while they qualify. Under monotone
+> disp(α) this returns exactly the registered scan's α; if disp(α) were non-monotone
+> between adjacent rungs the two procedures can differ — a **calibration harness** runs
+> both scans on identical step streams for the first 15 episodes of two checkpoints and
+> the amendment is adopted only if the accepted α agree rung-for-rung on every step and
+> every displacement choice; otherwise the full descending scan is used despite the cost
+> (~2–3 captures/step vs 4–6). Concurrency capped at 3 processes.
 
 ## 9. Reproduction
 
