@@ -1582,8 +1582,9 @@ in-sample (|r| = 1.0) at every delay including 100 — but its absolute amplitud
 ~700x below the trained operating point, so a fixed-resolution held-out decoder reads
 chance (decode 0.42–0.68 at delay 100, chance-adjusted baseline ~0.52). Combined with (5):
 the answer is neither moved away from the readout nor selectively erased; the entire state
-contracts onto the SSM's saturated attractor and the answer-specific component decays
-exponentially within it.
+contracts onto the SSM's saturated attractor and the answer-specific component anneals
+within it. (The decay's functional form — exponential or otherwise — is *proposed*, not
+fitted; no decay curve has been estimated against alternatives.)
 
 **7. Three failure boundaries, separately scheduled in delay space.** Behavioural
 (22–50, bimodal: 22–30 vs 40–50), functional (§8k: 11/23 still using the state at 30),
@@ -1599,6 +1600,71 @@ interval. The |r| = 1.0 statement is the per-checkpoint maximum over 8 dimension
 estimate. No functional (substitution) measurement was taken at the newly located
 transition points, per the pre-registration. Evaluation-only throughout; no parameters
 were changed.
+
+**Three concepts, kept separate from here on** (all measured per checkpoint x delay):
+
+- **state magnitude** — mean ||s|| at the response step. A stable magnitude is *not*
+  evidence of retained information (§8o: norm pinned at 2.22 while information annealed);
+- **state dispersion** — across-instance std of the response-step state. How much states
+  differ between instances;
+- **task-relevant separation** — the class-mean gap along code dimensions, and held-out
+  decodability. Scale-free correlation on a dimension whose variance has vanished is *not*
+  evidence of usable information (the §8o variance-floor correction exists for exactly
+  this reason).
+
+The delay-100 failure is the conjunction: magnitude stable, dispersion -> 0, task
+separation -> 0.
+
+## 8p. Transition-point causal confirmation at delays 40, 50, 65 (pre-registered)
+
+**Question.** §8o located three boundaries in delay space — behavioural 22–50, functional
+(<= 30 for 12/23, from §8k's delay-30 battery), informational 50/65 — but causal
+utilisation has only ever been measured at 3/10/30/100 (§8k). This experiment runs the
+full causal substitution battery at the newly located transition points, to establish
+exactly where functional utilisation disappears relative to behavioural failure and to
+informational loss.
+
+**Design (evaluation only).** All 23 successful checkpoints x delays **[3, 40, 50, 65]**.
+Delay 3 is an in-run anchor that must reproduce §8k's delay-3 values exactly (same
+determinism check §8o used at delay 30). Delays 40/50/65 are **new causal measurements**,
+not re-readings of §8o: §8o's rows at those delays carried no substitution battery, and
+nothing here is inferred from them. Per checkpoint x delay: behavioural accuracy and the
+state-reset control; held-out ridge decoding of the answer at the response step; and the
+full substitution battery (own, same-answer, different-answer-follows, zero, shuffled).
+No training, no parameter change (`scripts/run_transition_functional.py`,
+`results/transition_functional/`).
+
+**Groups (fixed from the published §8o table, not post-hoc):**
+
+- behavioural: early-failing (`D_behav` <= 30; 12 checkpoints) vs late-failing
+  (`D_behav` >= 40; 11);
+- informational: `D_info` = 50 (12) vs 65 (11).
+
+**Functional criterion (as everywhere):** different-answer follows >= 0.9, same-answer
+>= 0.9, zero and shuffled <= 0.65. Never accuracy alone.
+
+**Pre-registered interpretation rules:**
+
+- **R1 (coincidence):** if every behaviourally-failed checkpoint also fails functionally
+  at delay 40, behavioural and functional failure are the same event at this resolution,
+  and the hierarchy collapses to behaviour+function before information.
+- **R2 (dissociation):** if any behaviourally-failed checkpoint passes the full functional
+  battery at 40, the state->answer causal map survives behavioural failure — a fourth
+  phenotype (information present, causally readable from donated state, behaviour absent);
+  the checkpoints are listed individually, and the follow-up question becomes why
+  own-states fail while donated states read out correctly.
+- **R3 (at the informational boundary):** for each `D_info` group, compare functional
+  status at 50 and 65, interpreted **jointly with decode**: as the answer amplitude
+  anneals (§8o), donor and own states converge, so the battery's same/diff contrast
+  mechanically degrades. Where decode < 0.95, follows-at-chance is *contrast loss*, not
+  evidence of disconnection. The clean functional test is therefore at delay 40, where
+  decode >= 0.95 for all 23 and contrast is intact.
+- **R4 (battery validity):** a functional claim at a given delay additionally requires
+  zero and shuffled <= 0.65 at that delay.
+
+**Bounded claims.** Checkpoint-level results are primary; group proportions secondary. No
+parameters change and no maintenance intervention runs here — the constrained-update
+experiment (§8q) follows only after these boundaries are causally confirmed.
 
 ## 9. Reproduction
 
