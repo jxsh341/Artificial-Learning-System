@@ -212,13 +212,16 @@ def run_one(ck_path: Path, run_dir: Path, episodes: int) -> dict:
         if grad_clip > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
 
-        with torch.no_grad():
-            g_vec = torch.cat([p.grad.reshape(-1) for p in params])
-            raw_norm = float(g_vec.norm())
+        # gradient of the delayed objective (graph from the episode above)
+        g_vec = torch.cat([p.grad.reshape(-1) for p in params]).detach()
+        raw_norm = float(g_vec.norm())
 
-            J = response_state_jacobian(
-                model, probe_ds, delay, marker_dim, generic_blank, params
-            )
+        # J at the current parameters (requires grad mode; own forward graph)
+        J = response_state_jacobian(
+            model, probe_ds, delay, marker_dim, generic_blank, params
+        ).detach()
+
+        with torch.no_grad():
             Jg = J @ g_vec
             U = torch.linalg.pinv(J, rcond=RCOND)          # [P, 128]
             u_vec = g_vec - U @ Jg
