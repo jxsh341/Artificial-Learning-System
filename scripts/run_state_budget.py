@@ -155,7 +155,7 @@ class BudgetSearch:
         deltas = [p.detach() - t for p, t in zip(self.trainable, theta_pre)]
 
         if self.fast:
-            alpha, disp = self._accept_fast(theta_pre, deltas, disp0)
+            alpha, disp = self._accept_fast(theta_pre, deltas, self.disp0)
         else:
             accepted = None
             for alpha in ALPHA_LADDER:
