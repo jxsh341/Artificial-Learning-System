@@ -181,7 +181,10 @@ def run_one(ck_path: Path, tag: str, run_dir: Path, budget: float,
 
     datasets = cr.build_datasets_from_cfg(cfg)
     test_ds = datasets["test"]
-    probe_ds = list(test_ds)[:PROBE_N]
+    from artificial_system.data.graph_tasks import ConnectivityDataset
+    probe_ds = ConnectivityDataset(
+        graphs=list(test_ds.graphs[:PROBE_N]), labels=test_ds.labels[:PROBE_N].clone(),
+    )
 
     model = build_model(
         cfg, node_feature_dim=int(cfg.get("graph", {}).get("node_feature_dim", 2)),

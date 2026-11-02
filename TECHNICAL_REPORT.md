@@ -1666,6 +1666,49 @@ No training, no parameter change (`scripts/run_transition_functional.py`,
 parameters change and no maintenance intervention runs here — the constrained-update
 experiment (§8q) follows only after these boundaries are causally confirmed.
 
+### §8p results (`results/transition_functional/`)
+
+Anchor: delay 3 reproduces §8k exactly — 23/23 behavioural, informational and functional
+(follows/same 1.000, zero 0.496, shuffled 0.531).
+
+**R1 confirmed (coincidence branch); R2 empty.** At delay 40: behaviour 3/23, functional
+3/23, informational 23/23 (decode = 1.000 in every checkpoint). The functional-pass set
+{seeds 1, 8, 15} equals the behavioural-pass set **exactly, checkpoint-for-checkpoint**
+(agreement 23/23). All 12 early-failing (`D_behav` ≤ 30) checkpoints fail the full battery
+at 40 (follows 0.48–0.52) with decode 1.000 and the zero/shuffled controls nominal
+(max 0.52/0.59 ≤ 0.65, so the battery is valid — R4 holds). Functional utilisation and
+behavioural retention are therefore not merely adjacent in delay space; they are the same
+event per checkpoint. In the 20 functionally-dead checkpoints at delay 40, same-answer
+substitution *also* fails (0.48–0.52): donating a state that carries the correct answer
+does not preserve the response — the functional disconnection measured at delay 30 (§8k)
+is the same disconnection at 40, now with the information still demonstrably present.
+
+**R3 refinement (recorded before any dependent use).** The pre-registered contrast-loss
+guard fired on decode < 0.95; at delay 50 both `D_info` groups have a contrast-free battery
+for a different, sharper reason: donated states have annealed into near-coincidence
+(donor dispersion 0.003–0.010), so same, diff, zero and shuffled substitutions all produce
+the same chance response (~0.49–0.51) regardless of what the donor carries. In the
+`D_info`=65 group this happens with decode **still 1.000** — the correct trigger for
+"battery uninformative" is donor-state dispersion annealing, not the decode flag. The
+clean causal statement is therefore at delay 40 (contrast intact, controls nominal); at
+50/65 the battery measures the annihilation of donor contrast, not disconnection. The
+per-checkpoint table (summary.json) preserves both decode and dispersion at 50/65.
+
+**Updated boundary picture.** Functional utilisation ≤ 30 for 12/23 and dead by the first
+ladder point past each checkpoint's `D_behav` for the rest — behaviour and function
+co-fail across the whole population, at each checkpoint's own behavioural boundary
+(22–50), while information survives to 50/65. The hierarchy is now: **behaviour =
+function (one event, 22–50) < information (50/65)** — and §8o's mechanism explains the
+third boundary (amplitude annealing), while the first (behaviour/function) is the
+readout-detachment failure class of §8k–§8n. No checkpoint shows information present +
+function absent + behaviour present at 40 — the R2 phenotype does not exist in this
+population; donating the right answer never rescues a failed response past 40.
+
+**Bounded claims.** Causal claims are bounded to the substitution battery as implemented
+(§7 machinery); delay-50/65 functional status is reported as unmeasurable-by-battery, not
+as "no utilisation". n=1 paired observation per (checkpoint, delay); no new controls
+beyond the pre-registered five-arm battery.
+
 ## 8q. Long-delay maintenance under state-budget-constrained encoder updates (pre-registered)
 
 **Question.** §8n located the destabiliser: a single *unconstrained* encoder step on the

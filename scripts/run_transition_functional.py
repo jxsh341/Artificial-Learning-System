@@ -92,7 +92,7 @@ def main() -> int:
         df = pd.concat([pd.read_csv(p) for p in parts], ignore_index=True)
         df = df.sort_values(["sample", "seed", "delay"]).reset_index(drop=True)
         df.to_csv(out_dir / "transition_functional.csv", index=False)
-        _summarise(df, out_dir)
+        _summarise(df, out_dir, [int(d) for d in args.delays])
         return 0
 
     csv_path = out_dir / f"transition_functional_shard{args.shard}.csv"
@@ -167,7 +167,7 @@ def _functional(row) -> bool:
                 and row.subst_zero_accuracy <= 0.65 and row.subst_shuffled_accuracy <= 0.65)
 
 
-def _summarise(df: pd.DataFrame, out_dir: Path) -> None:
+def _summarise(df: pd.DataFrame, out_dir: Path, delays: list[int] | None = None) -> None:
     groups = load_groups()
     df = df.copy()
     df["functional"] = df.apply(_functional, axis=1)
@@ -241,7 +241,8 @@ def _summarise(df: pd.DataFrame, out_dir: Path) -> None:
     }
 
     summary = {
-        "delays": [int(d) for d in args.delays],
+        "delays": [int(d) for d in (delays if delays is not None
+                                    else sorted(df.delay.unique()))],
         "n_checkpoints": int(df.seed.nunique()),
         "anchor_delay3": anchor_check,
         "by_delay": by_delay,
