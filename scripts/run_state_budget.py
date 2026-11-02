@@ -542,7 +542,8 @@ def main() -> int:
                     print(f"[skip] {tag} budget_eps{budget} (complete)", flush=True)
                 else:
                     print(f"[run ] {tag} budget_eps{budget} -> {b_dir}", flush=True)
-                    s, norms = run_one(ck_path, tag, b_dir, budget, args.episodes)
+                    s, norms = run_one(ck_path, tag, b_dir, budget, args.episodes,
+                                       fast=False)
                     r, b = s["rubric"], s["battery"]
                     print(f"      delayed={b['delayed_intact']:.3f} "
                           f"follows={r['subst_diff_follows']:.3f} "

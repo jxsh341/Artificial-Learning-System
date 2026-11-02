@@ -1800,6 +1800,18 @@ be recorded before reporting.
 > the amendment is adopted only if the accepted α agree rung-for-rung on every step and
 > every displacement choice; otherwise the full descending scan is used despite the cost
 > (~2–3 captures/step vs 4–6). Concurrency capped at 3 processes.
+>
+> **Calibration outcome (recorded).** The gate FAILED: rung-for-rung agreement on only 1
+> of 4 (checkpoint, ε) pairs. The crossings sit exactly on the budget boundary, and the
+> graph-pooling ops are non-deterministic across processes, so borderline acceptances
+> flip — precisely the regime the amendment excluded from adoption. Per the recorded
+> fallback rule the **full descending ladder scan is the operative procedure** for all
+> §8q runs (`fast = False` everywhere). A post-hoc timing profile on the cleaned machine
+> measured a probe capture at ~0.1 s (the 7.2 s figure that motivated the amendment was
+> an artifact of the memory-starved machine), so the registered scan is affordable after
+> all. The rejection of the amended scan is *methodological*, not a result: the
+> accepted-α definition is unchanged and the constraint semantics are exactly as
+> pre-registered in the definitional clarification.
 
 ## 9. Reproduction
 
