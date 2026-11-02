@@ -1976,6 +1976,64 @@ magnitude-constrained reference (`scripts/run_jacobian_projected.py`,
 > has ratio 0.04–0.43 — the delayed objective is, to first order, overwhelmingly a
 > state-writing objective.
 
+### §8r results (`results/delay30_jacobian/`)
+
+**Outcome E: H8r is rejected under the registered operationalisation. 0/12.** All 12
+checkpoints fail the full rubric. 11/12 show the §8n representational signature (decode
+0.45–0.56); one checkpoint (seed 17) ends with decode 0.99 while behaviour (0.48) and
+function (follows 0.52) are dead — the §8m boundary-translation phenotype, which the
+registered A–E grid did not anticipate (D required ≥ 3 oscillation transitions, and seed
+17 shows none; reported here as a recorded gap rather than forced into E).
+
+| registered band | result |
+|---|---|
+| A preservation + substantial adaptation | 0/12 |
+| B preservation + negligible adaptation | 0/12 |
+| C preservation + intermediate | 0/12 |
+| D functional oscillation (decode intact) | 0/12 |
+| **E representational collapse** | **11/12** (+1 decode-intact access collapse) |
+
+**The mechanism is measured, and it is not the projection's geometry.** Three facts:
+
+1. *The projection works exactly as designed* — ||J u||/||J g|| = 2.7e-05 at a captured
+   point (implementation verification above). The surviving 8–43% of the gradient is
+   genuinely state-neutral to first order at the current parameters.
+2. *Adam re-magnifies it.* With the projected gradient as Adam's input, the realised
+   parameter movement is **GNN delta 1.17–1.72 — larger than the unconstrained §8n arm
+   (0.85–1.15)**. Adam's per-coordinate second-moment normalisation turns a small,
+   sparse residual into ~lr-size steps along sign(u) — and sign(u) is not state-null.
+   Projecting the gradient pre-Adam does not project the update; this was recorded as a
+   definitional caveat in the registration, and it is now the measured explanation.
+3. *The first-order protection does not survive even one step.* Probe-state displacement
+   after a single projected step is 0.70 (seed 0) — 3.5× the §8q wall — reaching ~1.0 by
+   episode 6 and 1.1–2.8 by run's end. The trajectory immediately leaves the region where
+   the linearisation is valid; decode collapses with it (trajectories are flat-chance from
+   episode 1; seed 6's single transient recovery at episode 50 is the only exception).
+
+**Seed 14 (the pre-registered diagnostic case): also E** — decode 0.49, follows 0.52, GNN
+delta 1.65. Direction at full magnitude does not rescue the checkpoint whose function died
+at GNN delta 0.0012 under magnitude control (§8q). The combined reading: seed 14's rescue
+point sits so close to the access boundary that *any* full-magnitude encoder movement —
+projected or not — destroys it; its §8q failure was the same event seen through a smaller
+lens.
+
+**What §8q + §8r jointly establish.** Within this architecture, the delay-30 rescue is
+maintainable by *magnitude* control (§8q: 11/12 at ε = 0.05, 7/12 with real adaptation at
+ε = 0.2) and not by *first-order direction* control at full magnitude (§8r: 0/12). H8r's
+premise — that useful admissible directions exist which Adam can exploit at full step
+size — fails for two measured reasons: the state-null subspace at θ is not state-null
+along the trajectory (curvature), and the adaptive optimiser does not respect the
+projection. A follow-up that projects the *optimizer's step* (post-Adam Δθ, renormalised
+to the unconstrained magnitude) would separate "the direction idea fails" from "the
+gradient-projection × Adam interaction fails"; it is recorded as the candidate next
+experiment, not claimed here.
+
+**Bounded claims.** The rejection is of H8r *as registered* (projected gradient, pre-Adam,
+full magnitude, 100 delayed episodes); it is not a proof that no direction-aware update
+can maintain the rescue. n = 12; one registered grid; the seed-17 phenotype is reported
+outside the grid rather than forced into it. No parameters of the reference config were
+changed; §8q remains the magnitude-constrained reference.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
