@@ -236,6 +236,12 @@ def run_one(ck_path: Path, run_dir: Path) -> dict:
         lr=float(train_cfg.get("learning_rate", 1e-3)),
         weight_decay=float(train_cfg.get("weight_decay", 0.0)),
     )
+    # replay clears p.grad; restore it so Adam actually steps (8s micro-replication)
+    off = 0
+    for p in enc:
+        n = p.numel()
+        p.grad = g_vec[off:off + n].view_as(p).clone()
+        off += n
     optimizer.step()
     with torch.no_grad():
         d_theta = torch.cat([(p.detach() - t).reshape(-1) for p, t in zip(enc, theta0)])
