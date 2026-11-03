@@ -2034,6 +2034,73 @@ can maintain the rescue. n = 12; one registered grid; the seed-17 phenotype is r
 outside the grid rather than forced into it. No parameters of the reference config were
 changed; §8q remains the magnitude-constrained reference.
 
+## 8s. Direction at full step size, applied to the realised update: post-Adam step projection (pre-registered)
+
+**H8s:** projecting the *realised optimiser update* into the state-preserving tangent
+space, followed by magnitude restoration, preserves long-delay functionality while
+permitting substantial encoder adaptation. §8r exposed the distinction this tests:
+g_projected ⇏ Δθ_projected — the optimiser's adaptive normalisation changes the direction
+of the realised update, so a mathematically valid gradient constraint was defeated before
+it reached the parameters. §8s applies the constraint where it cannot be defeated: to
+Δθ itself.
+
+**Design.** The same 12 captured checkpoints, the same exposure (100 delayed episodes at
+delay 30 from the saved RNG stream), frozen readout (head/C/D deltas exactly 0.000), and
+the same J as §8r (response-step state on the 16-instance probe batch, all 8 coordinates;
+concatenated across `graph_encoder` + `pooling` + `temporal_model` state generation —
+justified: the 128 state constraints couple all three groups jointly, and per-group
+projections would leave cross-group state effects alive; same pinv, rcond 1e-6).
+Per step:
+
+1. J is evaluated at θ_pre (before the update);
+2. Adam steps with the **raw** clipped delayed gradient — identical to §8n's update;
+3. the realised step Δθ_Adam is projected: Δθ_safe = P_J(Δθ_Adam) = Δθ_Adam −
+   pinv(J)·(J·Δθ_Adam);
+4. **magnitude restoration:** Δθ_safe is rescaled to ||Δθ_Adam|| (the unconstrained
+   magnitude) — the encoder moves exactly as far as §8n, in the protected direction;
+5. if ||Δθ_safe|| < 1e-12 (the step is entirely state-changing), the step is rejected
+   (θ unchanged); persistent rejection feeds category 5.
+
+Because the projection is applied *after* the optimiser, the realised displacement is
+state-null to first order at θ_pre by construction — the §8r failure channel
+(Adam reintroducing forbidden directions) is closed. What remains open is precisely the
+§8r lesson the registration carries forward: first-order protection at θ_pre does not
+guarantee trajectory-level protection (curvature), which the outcome categories separate.
+
+**Measurements.** Probe schedule as §8n (episodes 1–5, then every 10); state displacement
+after **every** update (a method that survives 10 steps and collapses on step 11 is not
+maintenance); realised update norm before and after restoration; projection ratio
+||P_J(Δθ)||/||Δθ|| per step (how much of Adam's update survives); parameter deltas by
+group; decodability; the full substitution battery (mandatory); delayed accuracy with the
+state-reset control; immediate accuracy; the registered rubric.
+
+**Pre-registered outcome categories (per checkpoint, first match wins):**
+
+1. **Full success** — full rubric PASS AND delayed = 1.000 AND immediate = 1.000 AND
+   GNN delta ≥ 0.5 AND probe trajectories with < 3 transitions between ≥ 0.9 and ≤ 0.6;
+2. **Partial success** — decode ≥ 0.95 at final AND functional utilisation intermittently
+   fails (≥ 3 transitions);
+3. **Boundary translation** — decode ≥ 0.95 AND function dead (follows < 0.9) WITHOUT
+   oscillation (the §8m / §8r-seed-17 phenotype);
+4. **Representational collapse** — decode < 0.95;
+5. **No meaningful adaptation** — GNN delta < 0.05 (the §8q floor) and category 1 not met.
+
+**Verdict rule (fixed):** H8s *confirmed* iff ≥ 8/12 checkpoints in category 1;
+*partial support* iff ≥ 8/12 in categories 1–2 combined; *rejected* iff ≥ 8/12 in
+categories 3–4 combined (direction at full magnitude fails even when applied to the
+realised step). Category-5-dominant runs mean the projection freezes the encoder —
+reported as "no admissible direction survives magnitude restoration", distinct from all
+of the above. Seed 14 stays in the primary population analysis and is additionally
+reported individually (it appears unusually close to its functional boundary: §8q
+function died at GNN delta 0.0012, §8r collapsed at 1.65 like everyone else).
+
+**Bounded claims.** The constraint is scoped to the probe batch's response-step states;
+curvature along the trajectory is exactly what the outcome grid separates; magnitude
+restoration ties §8s to the §8n unconstrained scale by construction, making the §8n arm
+the like-for-like reference. No budget, no scaling beyond restoration, no architecture
+change; §8q (magnitude) and §8r (gradient-projection) remain separate references
+(`scripts/run_step_projected.py`, `results/delay30_step_proj/`).
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
