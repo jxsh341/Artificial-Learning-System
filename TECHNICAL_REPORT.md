@@ -2101,6 +2101,95 @@ the like-for-like reference. No budget, no scaling beyond restoration, no archit
 change; §8q (magnitude) and §8r (gradient-projection) remain separate references
 (`scripts/run_step_projected.py`, `results/delay30_step_proj/`).
 
+### §8s results (`results/delay30_step_proj/`)
+
+**Outcome: H8s rejected under the registered operationalisation. 12/12 category 4
+(representational collapse); the registered verdict rule (≥ 8/12 in categories 3–4)
+fires.** Grid tally: full success 0/12, partial success 0/12, boundary translation
+0/12, representational collapse 12/12, no-adaptation 0/12. There is no registered-grid
+gap this time: every run has decode < 0.95 and lands in category 4 outright.
+
+**The constraint was applied — and verified — at every step.** This is the channel §8r
+could not close, and it held:
+
+- projection ratio per step ≥ 0.785 (per-run means 0.86–0.94): Adam's *realised* step is
+  ~86–94% state-preserving to first order. (Contrast §8r: the raw gradient was only
+  4–43% state-preserving — the optimiser's normalisation moves step mass *into* the null
+  space, the opposite of the §8r failure direction.)
+- state-nulling residual ‖J·Δθ_safe‖/‖J·Δθ‖ ≤ 2.5×10⁻³ at **all 1,200 steps** (12 runs
+  × 100), recorded per step.
+- magnitude restoration tracked Adam's realised norm exactly; **0 rejected steps out of
+  1,200** — no step was ever entirely state-changing.
+- micro-replication of seed 0, step 1 (thread-matched) reproduces the runner exactly:
+  ‖Δθ_Adam‖ = 0.1727 and post-update displacement 0.1239, bit-for-bit.
+
+**And the trajectories collapsed anyway.** First-step displacement 0.110–0.579 across the
+12 runs; final displacement 0.94–1.56 (§8q's entire wall was 0.2); GNN delta 2.19–4.15 —
+*larger than unconstrained §8n* (0.85–1.15), as in §8r; decode 0.45–0.68 at final
+(< 0.95 everywhere); delayed accuracy at chance from the first scheduled probe in 10/12
+trajectories. Immediate accuracy survived at 1.000 in 9/12 (0.79 seed 11; 0.52 seeds
+21 and 22) — §8n's collateral pattern.
+
+**Mechanism, measured exactly (seed 0, step 1).** ‖J·Δθ_Adam‖ = 22.19: Adam's 0.17-norm
+step carries a *linear* state image of 22 — its 8.6% state-changing residue is aligned
+almost perfectly with J's top singular direction (the maximum attainable for that
+component mass ≈ 24.6). The projection nulls the linear prediction to
+‖J·Δθ_safe‖ = 0.0117. The measured state displacement is 0.1239 — **10.6× the linear
+term at the very first step**. Across runs, step-1 displacements 0.11–0.58 imply
+curvature ratios ≈ 11–50×. Each step's higher-order state response exceeds its (nulled)
+first-order response by an order of magnitude or more, and the excess accumulates
+(displacement 0.12 → ~1.0–1.6 over 100 episodes, decode collapsing with it). At
+Adam-scale steps, a per-step first-order guarantee has no trajectory-level force.
+
+A byproduct of the micro-replication, recorded because it quantifies the chaos: the same
+replay with a different thread count (2 vs 1) produced displacement 0.1503 instead of
+0.1239 — reduction-order arithmetic differences (~10⁻⁷ in parameters) amplified five
+orders of magnitude by the state map within a single step. Single-step displacement is
+exactly reproducible only thread-matched; this is the §8q calibration-gate phenomenon
+seen at its root, and it is far below every effect reported here.
+
+**Joint reading (§8n / §8q / §8r / §8s).**
+
+| constraint | form | result |
+|---|---|---|
+| none (unconstrained) | — | §8n: 0/12, collapse at episode 1 |
+| direction, on the gradient (pre-optimiser) | project g onto null(J) | §8r: 0/12 |
+| direction, on the realised step (post-optimiser) | project Δθ, restore magnitude | §8s: 0/12 |
+| magnitude, on the realised state displacement | §8q wall (ε ladder) | **7/12 (ε=0.2), 11/12 (ε=0.05)** |
+
+The 2×2 is now closed: first-order direction control fails both pre- and post-optimiser
+at full step size, and §8s's verified per-step nulling attributes the failure to
+**curvature**, not to the optimiser interaction that defeated §8r. Within this
+architecture, the only control that maintains the delay-30 rescue during continued
+delayed training is §8q's direct bound on the realised state displacement — what must be
+controlled is where the update *lands* (states), not what is *requested* (gradient or
+parameter direction).
+
+**Seed 14 (registered diagnostic): category 4 like the population** (decode 0.58,
+d_gnn 2.19, ratio 0.92, zero rejections). The direction-over-magnitude hypothesis for
+this checkpoint is now rejected in both registered forms (§8r gradient, §8s step).
+Combined with §8q — where its function died at GNN delta 0.0012 — the reading is that
+seed 14's rescue point sits extraordinarily close to its access boundary: any material
+encoder movement destroys access regardless of direction, and magnitude control survives
+there only by not moving. Its tolerance profile is a *distance-to-boundary* property
+(fed into the pre-registered tolerance-profile workstream).
+
+**Bounded claims.** The rejection is of H8s as registered (post-Adam step projection with
+magnitude restoration to the unconstrained norm; 100 delayed episodes; CPU). It is not a
+claim that no curvature-aware method can maintain the rescue — §8q's displacement wall
+*is* the working operationalisation of bounding where the update lands; second-order or
+trust-region variants are recorded candidates, untested. The curvature statement is
+measured exactly at step 1 (one seed, verified reproduction) and supported by per-step
+residuals and displacement trajectories for all 12; it is not a global Hessian analysis.
+
+**Infrastructure note (reproduction).** A CUDA feasibility benchmark was run on a
+side-by-side venv (torch 2.14.1+cu126, RTX 3050 6GB): J is bit-identical between
+torch 2.13.0 and 2.14.1 on CPU; GPU J agrees with CPU to 3×10⁻⁶ relative; GPU
+repeat-capture noise floor 3.4×10⁻⁷; one §8s step costs 50.5 s on GPU (1.7×; best route
+33.6 s, 2.5×) against 84 s on CPU — below the pre-declared ≥ 3× adoption threshold, and
+6 GB VRAM caps concurrency at ~2–3, so sweep throughput is parity at best. CPU remains
+the platform; the venv is kept as a validated spare (bit-identical CPU J).
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
