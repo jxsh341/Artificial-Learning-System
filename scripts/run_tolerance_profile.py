@@ -111,6 +111,52 @@ def replay_first_episode_gradient(model, datasets, task_cfg, ck, train_cfg) -> t
     return g
 
 
+def curvature_block(model, enc, theta0, datasets, task_cfg, ck, train_cfg,
+                    probe_ds, s_cap, delay, marker_dim, generic_blank) -> dict:
+    """One full-magnitude Adam step at capture, projected and restored with J
+    evaluated at theta_pre -- exactly the 8s micro-replication recipe."""
+    g_vec = replay_first_episode_gradient(model, datasets, task_cfg, ck, train_cfg)
+    off = 0
+    for p in enc:
+        n = p.numel()
+        p.grad = g_vec[off:off + n].view_as(p).clone()
+        off += n
+    # J at theta_pre (BEFORE the step) -- the registered 8s recipe
+    J = rjp.response_state_jacobian(model, probe_ds, delay, marker_dim,
+                                    generic_blank, enc).detach()
+    optimizer = torch.optim.Adam(
+        model.parameters(),
+        lr=float(train_cfg.get("learning_rate", 1e-3)),
+        weight_decay=float(train_cfg.get("weight_decay", 0.0)),
+    )
+    optimizer.step()
+    with torch.no_grad():
+        d_theta = torch.cat([(p.detach() - t).reshape(-1) for p, t in zip(enc, theta0)])
+        Jd = J @ d_theta
+        U = torch.linalg.pinv(J, rcond=1e-6)
+        d_safe = d_theta - U @ Jd
+        d_safe = d_safe * (d_theta.norm() / d_safe.norm())
+        lin_pred = float((J @ d_safe).norm())   # post-restoration, as in 8s
+        off = 0
+        for p, t in zip(enc, theta0):
+            n = p.numel()
+            p.copy_(t + d_safe[off:off + n].view_as(p))
+            off += n
+    disp1 = rjp.probe_displacement(model, probe_ds, s_cap, delay, marker_dim, generic_blank)
+    with torch.no_grad():
+        off = 0
+        for p, t in zip(enc, theta0):
+            n = p.numel()
+            p.copy_(t)
+            off += n
+    return {
+        "adam_norm": float(d_theta.norm()),
+        "lin_pred": lin_pred,
+        "disp_step1": disp1,
+        "curvature_ratio": disp1 / lin_pred if lin_pred > 0 else float("nan"),
+    }
+
+
 def run_one(ck_path: Path, run_dir: Path) -> dict:
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -230,47 +276,8 @@ def run_one(ck_path: Path, run_dir: Path) -> dict:
     st_cap = sc.capture_trial_states(model, probe_ds, delay=delay, batch_size=16,
                                      marker_dim=marker_dim, generic_blank=generic_blank)
     s_cap = st_cap["pre_response"].detach().float()
-    g_vec = replay_first_episode_gradient(model, datasets, task_cfg, ck, train_cfg)
-    optimizer = torch.optim.Adam(
-        model.parameters(),
-        lr=float(train_cfg.get("learning_rate", 1e-3)),
-        weight_decay=float(train_cfg.get("weight_decay", 0.0)),
-    )
-    # replay clears p.grad; restore it so Adam actually steps (8s micro-replication)
-    off = 0
-    for p in enc:
-        n = p.numel()
-        p.grad = g_vec[off:off + n].view_as(p).clone()
-        off += n
-    optimizer.step()
-    with torch.no_grad():
-        d_theta = torch.cat([(p.detach() - t).reshape(-1) for p, t in zip(enc, theta0)])
-    J = rjp.response_state_jacobian(model, probe_ds, delay, marker_dim,
-                                    generic_blank, enc).detach()
-    with torch.no_grad():
-        Jd = J @ d_theta
-        U = torch.linalg.pinv(J, rcond=1e-6)
-        d_safe = d_theta - U @ Jd
-        lin_pred = float((J @ d_safe).norm())
-        d_safe = d_safe * (d_theta.norm() / d_safe.norm())
-        off = 0
-        for p, t in zip(enc, theta0):
-            n = p.numel()
-            p.copy_(t + d_safe[off:off + n].view_as(p))
-            off += n
-    disp1 = rjp.probe_displacement(model, probe_ds, s_cap, delay, marker_dim, generic_blank)
-    curvature = {
-        "adam_norm": float(d_theta.norm()),
-        "lin_pred": lin_pred,
-        "disp_step1": disp1,
-        "curvature_ratio": disp1 / lin_pred if lin_pred > 0 else float("nan"),
-    }
-    with torch.no_grad():
-        off = 0
-        for p, t in zip(enc, theta0):
-            n = p.numel()
-            p.copy_(t)
-            off += n
+    curvature = curvature_block(model, enc, theta0, datasets, task_cfg, ck, train_cfg,
+                                probe_ds, s_cap, delay, marker_dim, generic_blank)
 
     summary = {
         "arm": "tolerance_profile",
