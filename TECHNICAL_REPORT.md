@@ -2190,6 +2190,110 @@ repeat-capture noise floor 3.4×10⁻⁷; one §8s step costs 50.5 s on GPU (1.7
 6 GB VRAM caps concurrency at ~2–3, so sweep throughput is parity at best. CPU remains
 the platform; the venv is kept as a validated spare (bit-identical CPU J).
 
+## 8t. Tolerance profile: distance-to-boundary as the predictor of maintenance tolerance (pre-registered)
+
+**H8t:** a captured rescue checkpoint's maintenance tolerance — the largest encoder
+displacement under which continued training still preserves function (§8q's observations)
+— is predicted by its distance to the relevant access boundaries at capture, not by
+displacement magnitude alone. Seed 11 tolerated GNN delta 0.1186; seed 14 died at
+0.0012 — a ~100× difference at the same wall scale. H8t says that difference is
+*geometric*: how far the checkpoint's states sit from the boundaries whose crossing
+destroys behaviour, function, or decodability.
+
+**Observation target (from disk, `results/delay30_maintenance/`, no new runs).** §8q's
+per-checkpoint tolerance is **interval-censored**: for each checkpoint, τ ∈ [max d_gnn
+among rubric-PASS runs, min d_gnn among FAIL runs):
+
+| seed | τ interval (d_gnn units) | seed | τ interval |
+|---|---|---|---|
+| 0 | [0.0015, 0.0412) | 14 | **(0, 0.0012)** — failed both budgets |
+| 4 | [0.0807, ∞) | 16 | [0.0523, 0.0811) |
+| 6 | [0.0558, ∞) | 17 | [0.0007, 0.0130) |
+| 11 | [0.1186, ∞) | 18 | [0.0532, ∞) |
+| 12 | [0.0997, ∞) | 21 | [0.0400, 0.1149) |
+| 13 | [0.0803, ∞) | 22 | [0.0071, ∞) |
+
+Correlation point values: geometric mean of the interval bounds; seed 14 = 0.0006
+(midpoint of its censored interval); lower-bound-only seeds use their passing value
+(recorded as lower bounds). Note the ε=0.2 failures for seeds 0/16/17/21 are the
+*access-oscillation* phenotype (decode stayed 1.000) — exactly the boundary §8t should
+locate geometrically.
+
+**Part 1 — geometry at capture (the §8l stage-A instrument, definitions unchanged,
+`scripts/run_readout_geometry.py` / `readout_geometry.py`).** For each of the 12
+captured checkpoints, response states captured at delay 30 (batch 50, the stage-A
+convention), no training:
+
+- **m_behav** (behavioural boundary distance, state units) = `abs_margin_mean` ÷
+  ‖w_r‖ — mean |logit1−logit0| at the response step (actual logits, per the §8l
+  correction) over the local readout gradient d(logit1−logit0)/ds at the mean state.
+  Recorded alongside: per-class margins, `class_margin_separation`, `boundary_vs_mid`
+  (translation check), `readout_accuracy`, `cos_probe_readout`.
+- **m_decode** (linear-decoding boundary distance, state units) = min over classes of
+  |mean signed ridge-probe projection| ÷ ‖w_p‖ (probe: ridge λ=1 on the captured
+  response states, boundary at the data mean — stage-A convention);
+  `decode_accuracy` (held-out CV) recorded with it.
+- **Functional (substitution) boundary** — two pre-registered geometric candidates:
+  m_behav itself, and **disp_state** (mean within-class state dispersion, §8o variance
+  floor 0.01): substitution survives while displaced/donor states remain on the correct
+  side of the readout boundary, so its tolerance should scale with margin relative to
+  the state distribution's spread. The *empirical* substitution threshold comes from
+  Part 2.
+- `state_norm_mean`; per-group §8q displacements (d_gnn/d_pool/d_gen) from disk.
+
+**Part 2 — static displacement walk (direct per-function thresholds).** For each
+checkpoint × direction u ∈ {**u_grad**: unit delayed-gradient direction at capture;
+**u_rand**: seeded unit random direction}: θ(δ) = θ0 + δ·u (pure translation — no
+optimiser, no training) at δ ∈ {0.0005, 0.0015, 0.005, 0.015, 0.05, 0.15, 0.45}
+(factor-3 ladder spanning and exceeding the §8q τ range). At every rung (battery
+measured at 44.5 s per call — full battery affordable at all rungs): the full
+substitution battery, delayed/reset/immediate (quick_probe), and response-state decode
+(ridge CV, stage-A definition). Thresholds at §8q rubric criteria: δ*_behav = max δ
+with delayed_intact = 1.000; δ*_decode = max δ with decode ≥ 0.95; δ*_subst = max δ
+with subst_diff_follows = 1.000. Per-group displacement recorded at every rung; the τ
+comparison uses the GNN-group norm (§8q's units). **The walk is a boundary-location
+probe, not a trajectory simulation** — §8s showed single-step and trajectory responses
+diverge, and whether static geometry predicts *trained* tolerance is precisely what is
+under test.
+
+**Part 2b — curvature ratio (the §8s mediator).** Per checkpoint: first-step curvature
+ratio = realised state displacement of one full-magnitude Adam step ÷ ‖J·Δθ_safe‖,
+computed exactly as the §8s micro-replication (one Jacobian + one Adam step at capture;
+§8s measured 10.6× for seed 0).
+
+**Part 3 — prediction tests.**
+
+- **P1 (geometry → training tolerance):** Spearman ρ ≥ 0.6 between m_behav (and
+  separately m_decode) and τ, on n = 12 and on n = 11 excluding seed 14.
+- **P2 (static thresholds → training tolerance):** Spearman ρ ≥ 0.6 between δ*_behav
+  (u_grad) and τ.
+- **P3 (curvature mediator):** ρ(curvature ratio, τ) ≤ −0.4; and m_behav/curvature
+  improves leave-one-out prediction of τ beyond m_behav alone.
+- **LOO protocol:** for each checkpoint, OLS on log₁₀ τ ~ log₁₀ predictor over the
+  other 11; report LOO median |log₁₀ error| and LOO-R². **Seed 14 is the named held-out
+  case:** the geometric account succeeds iff its LOO-predicted τ < 0.01 (recognising
+  its ~100× lower tolerance without having been fitted to it).
+- Anisotropy (descriptive): per-checkpoint δ*_behav(u_grad)/δ*_behav(u_rand).
+
+**Pre-registered outcomes.**
+
+- **T1 — geometry predicts tolerance** (P1 or P2 confirmed AND LOO median |log₁₀
+  error| ≤ 1.0 AND seed-14 LOO < 0.01): checkpoint-specific geometric maintenance
+  limits established — there is no universal safe displacement; each representation has
+  its own.
+- **T2 — partial** (some boundaries predict, others do not; or rank correlation holds
+  but LOO fails): different failure modes have different geometric controls — report
+  which boundary tracks which function.
+- **T3 — no reliable relationship** (all |ρ| < 0.4): the distance-to-boundary account
+  is insufficient; tolerance is path- or dynamics-dependent.
+
+**Bounded claims.** n = 12, interval-censored observations, rank-based and LOO
+statistics only; the walk is static and single-direction (two directions sampled);
+boundaries are measured on probe-batch response states; the functional criterion is the
+battery's donor-substitution readout at §8q thresholds; no training, no architecture
+change; §8q/§8r/§8s results untouched
+(`scripts/run_tolerance_profile.py`, `results/delay30_tolerance/`).
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
