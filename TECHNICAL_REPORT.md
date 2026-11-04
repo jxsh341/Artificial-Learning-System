@@ -2618,6 +2618,121 @@ same phenotype being executed dynamically, twice per cycle, on a 100-episode sta
    mechanism measured in this section is per-run and unanimous, so none depends on the
    §8u↔§8q comparability at score level.
 
+## §8v pre-registration: online boundary-position statistics as the fragility indicator
+### (registered before any §8v run)
+
+**Central question.** Can measurements available *during* training — the boundary-position
+statistic §8u validated (`boundary_vs_mid`, computed from the frozen readout direction and
+the state-cloud class centroids on the existing probe batch: no behavioural scoring, no
+additional labels) — detect current access degradation (V1) and *predict impending access
+loss before the behavioural drop* (V2), well enough to drive an intervention that improves
+maintenance over the fixed ε=0.2 bound (V3, separate arm)?
+
+**Hard-severed interpretations, in force before results:** (i) a statistic that classifies
+the already-crossed state does **not** count as prediction (§8u's 409/409 is detection
+only); (ii) prediction is scored only where the rule's *inputs* exclude accessibility
+outcomes — bvm and its velocity are geometry-only quantities; (iii) recorded M-verdict
+language does not change retroactively; (iv) no architecture change, no SSM redesign, no
+added state dimensionality, no memory modules; readout frozen everywhere.
+
+**Threshold provenance (recorded before use — §8u caveat absorbed).** The |bvm| < 0.5 rule
+was read off seed 0's dense record and then validated on 8 other oscillators
+(selection-biased form). The §8v registration uses the selection-free form of the same
+data: access-ON never exceeded bvm = −0.054 and access-OFF never fell below +0.503 on
+409 probes in 9/9 runs, so the separating band is the interval (0, 0.5) with
+pinned thresholds **T_ON = 0 and T_OFF = 0.5** — bvm ≤ T_ON classifies access-ON,
+bvm ≥ T_OFF classifies access-OFF, and bvm in (T_ON, T_OFF) is the *declared transition
+zone* in which detection is withheld and prediction is tested. No threshold re-fitting on
+§8v outcomes will be performed after results are observed (a post-hoc amendment would have
+to be recorded as such and would void the pre-registered verdict).
+
+**Cohort (recommended option, all 12 §8q ε=0.2 checkpoints).** Seeds 0, 4, 6, 11, 12, 13,
+16, 17, 21 (the 9 oscillators), 14 (permanent access collapse — the indicator must detect
+a *continuous* dead state with no spurious flips), 18 and 22 (stable walkers — the rules
+must not chronically fire on them; they anchor the false-alarm denominator). Recipe:
+identical §8q ε=0.2 `BudgetSearch` full-ladder line search, frozen readout, same RNG
+stream, 100 episodes; per-episode quick probe as in §8q; added per-episode online
+instrumentation = the §8u boundary-position instrument verbatim, applied every episode
+(bvm, plus one-episode velocity v = bvm_e − bvm_{e−1}), wrapped in `fork_rng`.
+Behavioural-trajectory integrity check: per-episode quick probes must reproduce §8q's
+recorded values (bit-exactness expected up to the §8u-documented environment-drift
+mechanism; any flip is reported with the same adjudication standard — a pure
+un-instrumented control run if a discrepancy appears).
+
+**V1 — detection outcomes (registered).**
+- V1-D: on all 12 runs, per-episode bvm classifies every non-band episode's access
+  phase correctly (bvm ≤ 0 → substitution/access intact; bvm ≥ 0.5 → lost), i.e.
+  **zero violations across 12 runs** as registered success; any violation is reported
+  per episode and downgrades V1-D tiered (≥ 99%, ≥ 97%, < 97% of non-band episodes).
+- V1-C (control specificity): seed 14 classified access-lost at every episode; combined
+  V1-D violations on the three non-oscillating checkpoints ≤ 1 episode total.
+
+**V2 — prediction outcomes (registered).**
+- Rule (pre-registered, no tuning): a **loss forecast fires at episode e** iff
+  bvm_e ∈ (0, 0.5] **and** v_e > 0 (cloud moving wrong-side). The forecast claims a
+  high→low behavioural drop (first episode e' > e with delayed < 0.6) occurs with
+  lead time L = e' − e ≥ 1.
+- **V2-P (primary, per user criterion 1 + 2):** ≥ 90% of all high→low transitions in the
+  9-oscillator cohort are forecast (L ≥ 1) under this rule; median lead time reported;
+  false-alarm rate (fires with no drop within W = 3 episodes) ≤ 10%. Tiered downgrade:
+  75–90% / 50–75% / < 50% sensitivity.
+- **V2-B (baseline comparison, per user criterion 3 — generalisation, no per-seed
+  tuning):** the same scored data must also be scored for two pre-registered
+  comparators on identical runs: (a) cumulative parameter displacement at the fire
+  episode (the §8t/§8q variable) and (b) |Δbvm| without the direction condition.
+  The registered claim fired only if bvm+velocity beats both under the same S/FA
+  accounting; §8t's measured failure of static geometry (ρ ≤ 0.27) is the pre-existing
+  static comparator.
+- **V2-N (null guard):** the rule must NOT fire persistently on seeds 18/22 (fire rate
+  ≤ 1 episode per run) and must not claim a rescue forecast inside seed 14 beyond its
+  initial collapse.
+
+**V3 — intervention arm (registered now, launched only after V1/V2 analysis; single new
+arm with ε fixed at 0.2, as decided).** bvm-guarded line search on all 12 checkpoints,
+identical recipe otherwise: every ladder step additionally requires that a candidate
+step accepted from the ON side must not move bvm above T_OFF (the OFF-side threshold);
+crossings in the downward direction (from the OFF side toward access) are **not**
+restricted — required so the guard can rescue the seed-14 phenotype and cannot create
+an inescapable trap. The guard reads predicted post-step bvm from the line-search
+replay states (same evaluation batch; no RNG consumption; no behavioural scoring).
+
+- **V3-E1 (primary):** in the guarded runs that start access-ON, the number of high→low
+  behavioural transitions is **0 for ≥ 10 of the eligible checkpoints** (vs the fixed
+  arm's 5 rubric-failing oscillators plus 206 measured transitions per 9 runs); per-run
+  transition counts reported regardless of tier.
+- **V3-E2:** decode = 1.000 at every probed episode in every guarded run (any decode
+  collapse = guard is destabilising, recorded as such).
+- **V3-E3 (no-adaptation-cost):** full-rubric pass count ≥ the fixed arm's 7/12, and on
+  each checkpoint that adapted in the fixed arm the guarded run's GNN delta is ≥ 50% of
+  the fixed arm's (guard must not simply freeze adaptation).
+- **V3-E4 (measured, not scored):** guard activity per run (rejected-by-guard steps,
+  consecutive-rejection streaks = tug-of-war evidence, ladder-rung distribution), guard
+  compute overhead, and whether the guard interacts with the ε-wall (rejected rungs at
+  the wall as in §8u).
+- **V3-E5 (pre-registered interpretation tiers):** E1+E2+E3 all met → the indicator is
+  **actionable** (detection→prediction→prevention demonstrated end-to-end); E1 met but
+  E3 misses → actionable at a cost, bounds the improvement claim; E1 unmet → prediction
+  may stand (V2) but the available intervention granularity is insufficient at
+  per-episode resolution — the negative result specifies the resolution gap (per-step
+  guard as follow-up), not either way: registered as measured.
+
+**No-intervention control (as decided).** The fixed ε=0.2 arm's recorded trajectories
+(§8q records + the §8v re-run quick probes, which double as the V1/V2 runs) serve as the
+control; no new control compute. The guarded arm shares seeds, data order, and recipe;
+bit-exactness to the control is NOT expected in V3 (the guard legitimately changes the
+trajectory) — comparability is by construction (same recipe, same wall), not by
+trajectory identity.
+
+**Bounded claims.** n = 12, one budget (ε=0.2), one recipe, one delay; bvm is measured on
+a fixed 16-instance probe batch (evaluation-side) — its online availability at the
+episode scale is established, per-step availability is NOT (registered V3-E4 probe);
+crossings' structural lead time at per-episode resolution is bounded by the §8u
+transit durations (~1–3 band episodes), so V2's ceiling on lead time is small by
+construction; V3's promise is the elimination of *wrong-side crossings*, not
+mastering every maintenance failure. Finally: §8v assertions about "the system can
+recognise" are instrument claims about a measured statistic, not claims about
+self-appraisal.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
