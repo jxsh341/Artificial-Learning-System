@@ -90,9 +90,9 @@ def group_map(model):
         "gnn": list(model.graph_encoder.parameters()),
     }
     if ssm.diagonal:
-        groups["ssm_gen"] = [ssm.A_raw, ssm.B]
+        groups["ssm_gen"] = [ssm.A_raw, ssm.B.weight]
     else:
-        groups["ssm_gen"] = [ssm.B]
+        groups["ssm_gen"] = [ssm.B.weight]
     return groups
 
 
