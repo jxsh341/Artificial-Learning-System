@@ -38,12 +38,14 @@ def tau_point(seed: int) -> float:
     return lo                    # lower bound only
 
 
-def threshold(walk: pd.DataFrame, direction: str, col: str, criterion) -> float:
+def threshold(walk: pd.DataFrame, direction: str, criterion) -> float:
     """Max ladder delta at which the criterion still holds (0 if never;
-    np.inf-coded as LADDER top if always)."""
-    w = walk[walk.direction == direction].sort_values("delta")
-    ok = w[criterion(w)].values
+    ladder top if always -- right-censored)."""
+    w = walk[walk.direction == direction].sort_values("delta").reset_index(drop=True)
+    ok = criterion(w).values
     deltas = w["delta"].values
+    if len(deltas) == 0:
+        return float("nan")
     if ok.all():
         return float(deltas.max())  # right-censored at ladder top
     good = deltas[ok]
@@ -66,14 +68,16 @@ def main() -> int:
             "boundary_vs_mid": p1["boundary_vs_mid"], "cos": p1["cos_probe_readout"],
             "state_norm": p1["state_norm_mean"],
             "curv": c["curvature_ratio"], "curv_disp": c["disp_step1"],
-            "d_behav_grad": threshold(walk, "u_grad", "delayed_intact",
+            "d_behav_grad": threshold(walk, "u_grad",
                                       lambda w: w.delayed_intact >= 1.0),
-            "d_decode_grad": threshold(walk, "u_grad", "decode_pre_response",
+            "d_decode_grad": threshold(walk, "u_grad",
                                        lambda w: w.decode_pre_response >= 0.95),
-            "d_subst_grad": threshold(walk, "u_grad", "subst_diff_follows",
+            "d_subst_grad": threshold(walk, "u_grad",
                                       lambda w: w.subst_diff_follows >= 1.0),
-            "d_behav_rand": threshold(walk, "u_rand", "delayed_intact",
+            "d_behav_rand": threshold(walk, "u_rand",
                                       lambda w: w.delayed_intact >= 1.0),
+            "d_subst_rand": threshold(walk, "u_rand",
+                                      lambda w: w.subst_diff_follows >= 1.0),
         })
     t = pd.DataFrame(rows).sort_values("seed").reset_index(drop=True)
     pd.set_option("display.width", 240)
@@ -96,6 +100,12 @@ def main() -> int:
         r12, p12 = sp(x, tau)
         r11, p11 = sp(x, tau, n11)
         print(f"  {name:>14}: rho12={r12:+.2f} (p={p12:.3f})   rho11={r11:+.2f} (p={p11:.3f})")
+
+    print("\n--- descriptive (NOT registered predictors) ---")
+    for name, x in (("d_behav_rand", t.d_behav_rand.values),
+                    ("d_subst_rand", t.d_subst_rand.values)):
+        r12, p12 = sp(x, tau)
+        print(f"  {name:>14}: rho12={r12:+.2f} (p={p12:.3f})")
 
     print("\n--- P2 anisotropy (descriptive) ---")
     ratio = np.where(t.d_behav_rand > 0, t.d_behav_grad / np.maximum(t.d_behav_rand, 1e-9), np.inf)

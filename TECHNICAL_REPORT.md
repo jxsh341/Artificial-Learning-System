@@ -2294,6 +2294,64 @@ battery's donor-substitution readout at §8q thresholds; no training, no archite
 change; §8q/§8r/§8s results untouched
 (`scripts/run_tolerance_profile.py`, `results/delay30_tolerance/`).
 
+### §8t results (`results/delay30_tolerance/`)
+
+**Outcome: T3 — no reliable relationship. Distance-to-boundary, in every registered
+form, does not predict maintenance tolerance.**
+
+| registered test | result | criterion | verdict |
+|---|---|---|---|
+| P1 static margins (m_behav, m_decode) | ρ = +0.27 / +0.13 (n=12); +0.19 / +0.11 (n=11) | ρ ≥ 0.6 | **fail** |
+| P2 walk threshold (u_grad) | ρ = +0.07 / +0.19 | ρ ≥ 0.6 | **fail** |
+| P3 curvature mediator | ρ = +0.03 (needed ≤ −0.4) | negative association | **fail** |
+| LOO median error | 0.55–0.63 log₁₀ | ≤ 1.0 | (passes, but T1 needs all three) |
+| **seed 14 held out** | **every predictor: τ₁₄ ≈ 0.03–0.05; observed < 0.0012** | < 0.01 | **fail — by 25–50×** |
+
+The seed-14 result is the sharpest single fact in §8t. Trained on the other 11
+checkpoints, every registered geometric predictor places seed 14 in the tolerant half of
+the population — its capture-point geometry is unremarkable in every measured respect
+(m_behav 0.0958 vs population 0.081–0.116; cos 0.943; curvature 16.7×, mid-range) — yet
+in training it is the most fragile checkpoint in the population (§8q: function dead at
+GNN delta 0.0012). Whatever makes seed 14 intolerant is **invisible at capture**.
+
+Supporting measurements:
+
+- **The margins are flat where tolerance is not.** m_behav spans 1.4× across checkpoints
+  whose trained tolerances span ~170×; m_decode is nearly constant; disp_state saturates
+  at the 0.01 variance floor for **all 12** checkpoints — the captured delay-30 state
+  distributions are near-degenerate per dimension (§8o's attractor contraction, now seen
+  population-wide).
+- **Directional anisotropy is enormous and checkpoint-specific.** Along the delayed
+  gradient direction, behaviour dies at δ ≤ 0.0015 for every checkpoint; along a random
+  direction, the survival threshold ranges 0.005–0.45 (up to ~300× further; seed 0:
+  gradient 0 vs random 0.45). The gradient direction is the state-writing direction
+  (§8r); random directions barely touch the readout-relevant coordinates (§8r's
+  random-gradient contrast) — the walk turns that into per-checkpoint displacement units.
+- **The curvature mediator points nowhere**: ρ ≈ 0, with the raw ordering *inverted*
+  relative to the naive prediction (most fragile seed 0 has the *lowest* curvature ratio
+  10.6×; tolerant seed 11 among the highest at 31.2×).
+- Descriptive, not registered: random-direction thresholds correlate at ρ = +0.22 —
+  with two violent exceptions (seeds 0 and 22: tiny trained tolerance, largest
+  random-direction tolerance). No post-hoc geometric reading survives the outliers.
+
+**Interpretation (bounded).** Within the registered forms tested here, maintenance
+tolerance is **not a geometric property of the checkpoint** — it is a dynamical property
+of how the specific training trajectory interacts with the specific representation:
+which directions the optimiser's realised steps occupy (§8s: 86–94% state-null per step),
+how that residue is aimed (§8s: concentrated along J's top singular direction), and how
+the errors accumulate. This completes the §8q/§8r/§8s/§8t arc: the only reliable way to
+know a checkpoint's tolerance is to measure it behaviourally under the actual dynamics
+(§8q's line search) — which is why directly bounding the realised state displacement was
+the only control that worked. The engineering heuristic "measure the margin, set the
+learning rate" is refuted for this system: two checkpoints with indistinguishable
+geometry differed in maintenance tolerance by two orders of magnitude.
+
+**Recorded follow-up candidates (not tested here):** (i) trajectory-level predictors —
+e.g. the per-step state-residual statistics of the §8s runs as *online* fragility
+indicators (a measurement made during training, not before); (ii) the anisotropy ratio
+δ*(u_rand)/δ*(u_grad) as a descriptive fragility index — suggestive but broken by seeds
+0 and 22 as a rank predictor.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
