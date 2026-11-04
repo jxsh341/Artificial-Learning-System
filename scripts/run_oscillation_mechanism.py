@@ -84,8 +84,8 @@ def group_map(model):
     ssm = model.temporal_model
     groups = {
         "head": list(model.head.parameters()),
-        "ssm_C": [ssm.C],
-        "ssm_D": [ssm.D],
+        "ssm_C": [ssm.C.weight],
+        "ssm_D": [ssm.D.weight],
         "pooling": list(model.pooling.parameters()),
         "gnn": list(model.graph_encoder.parameters()),
     }
