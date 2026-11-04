@@ -215,14 +215,16 @@ def probe_batch_states(model, probe_ds, delay, marker_dim, generic_blank) -> tor
 
 def jacobian_at(model, enc, theta_target, probe_ds, delay, marker_dim,
                 generic_blank) -> torch.Tensor:
-    """J at theta_target; restores whatever params were live when called."""
+    """J at theta_target; restores whatever params were live when called.
+    NOTE: the J forward must run OUTSIDE torch.no_grad (autograd needs the
+    graph; the rjp docstring records this exact pitfall)."""
     live = [p.detach().clone() for p in enc]
     with torch.random.fork_rng():
         with torch.no_grad():
             for p, t in zip(enc, theta_target):
                 p.copy_(t)
-            J = rjp.response_state_jacobian(model, probe_ds, delay, marker_dim,
-                                            generic_blank, enc)
+        J = rjp.response_state_jacobian(model, probe_ds, delay, marker_dim,
+                                        generic_blank, enc)
         with torch.no_grad():
             for p, t in zip(enc, live):
                 p.copy_(t)
