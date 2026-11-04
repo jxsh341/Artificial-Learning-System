@@ -2796,6 +2796,36 @@ out-of-sample test for V1/V2 is the fresh §8v cohort (12 checkpoints re-run wit
 per-episode instrument, never observed before registration). V2-P/V1-D verdicts come
 from the fresh runs only.
 
+### §8v amendment 2 (recorded mid-cohort, before runs 5–12 are used; runs 1–4 observed)
+
+**Trigger.** Interim scoring of wave-1 runs (seeds 0, 4, 6, 11 — the only §8v data
+ observed at recording time) showed the amendment-1 fire formula generating chronic
+fires *from the already-crossed side* (|bvm| ≥ 0.5, where any rising velocity trivially
+exceeds the edge): interim FA-rate 127/160 = 0.79. A rule that fires *after* the
+crossing is not an early-warning statistic, and the false-alarm accounting of V2-P was
+registered on the assumption the rule fires only while access is intact.
+
+**Content.** The ORIGINAL registered V2 rule (pre-amendment) carried the ON-side gate
+explicitly: "bvm_e ∈ (0, 0.5] and v_e > 0". Amendment 1 corrected the sign convention
+(OFF-side exists on both signs) but its rewritten formula omitted the surviving gate.
+Amendment 2 restores the gate in the corrected sign convention; it changes nothing else:
+
+- **V2 fire condition (gated, registered-intent):** fire at episode e iff
+  |bvm_e| < 0.5 **and** v_e ≥ 0 **and** |bvm_e| + v_e ≥ 0.4948.
+- V1-D, sensitivity/FA accounting, W = 3, EDGE = 0.4948, and the V2-B baselines are
+  unchanged. The baselines were already threshold-swept oracles; the gate restores
+  symmetry (baseline (b) — |bvm| + |v| — is likewise restricted to fires from the
+  ON side |bvm| < 0.5 for the primary comparison; its unrestricted form is reported
+  alongside).
+
+**Dual scoring (in force):** because runs 1–4 were observed before this amendment, V2-P
+is scored **both** ways on the full cohort and both verdicts are reported as registered
+outcomes: (i) the amendment-1 letter (no gate — liable to the chronic OFF-side firing
+measured above); (ii) the gated, registered-intent rule. If (ii) passes where (i)
+fails, the report must state explicitly that the gate's *empirical necessity* was
+learned from runs 1–4, and that its textual pedigree (original registration) predates
+them — both facts recorded, and the reader may weigh the evidence accordingly.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
