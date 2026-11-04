@@ -2471,6 +2471,153 @@ re-run here; no architecture change; §8q results untouched
 4. **Cost note (registered scaling, not a change).** n = 9 with dense instrumentation;
    J instruments run 5× per oscillator (2 transitions + 3 fixed), not per-episode.
 
+## §8u results: the access oscillation is a state-cloud translation across a frozen readout
+### boundary, at an unchanged representation (measured, n = 9)
+
+All nine instrumented runs completed and were kept (`results/delay30_oscillation/`,
+one sub-directory per oscillator: `arm_summary.json`, `per_episode.csv`,
+`dense_probes.csv` ×53 episodes, `j_instruments.csv`, `dense_dirs.npz`, `step_log.csv`).
+
+**Run validation (U2, per oscillator).** The interrupt fired at the first sustained
+high→low crossing (e\* = 3–11); at e\* the full battery was taken *before* any update
+(delayed 0.48–0.52), the 5× no-update repeats were exactly identical in every run
+(substitution error bar 0.000 — the low phase is a deterministic state, not evaluation
+noise), the 10-episode frozen-hold never returned access (hold max 0.48–0.52, never
+≥ 0.9 — access requires parameter change), and every resume restored parameters
+bit-exactly, with the resumed run matching the recorded recipe thereafter.
+
+**Registered comparability check (as written, then adjudicated).** The letter of the
+criterion is exact reproduction of §8q's per-episode probe records (48 compared values:
+delayed/reset/immediate at §8q's probe episodes, thread-matched OMP_NUM_THREADS=1).
+Result: **6/9 exact (max|d| = 0.0)**; seeds 13, 16, 21 show max|d| = 0.52 — the max is
+a single quantised score flip (1.0 vs 0.48), 3–4 of 48 values, all `delayed_intact`,
+all at episodes ≥ 40, WITH both runs still oscillating. Adjudication (measured): a
+**pure, un-instrumented, full-100-episode ε=0.2 replica of seed 13 matches the
+§8u step log bit-for-bit (0 alpha differences, all displacements equal) and diverges
+from §8q's records identically to §8u (first alpha flip at step 30, 62 flips,
+FP-digit displacement differences from step 0)**. §8u's instrumentation is therefore
+exonerated: the instrumented re-run IS the recipe as it executes today. The
+recipe-vs-records drift is environment FP noise (§8q's recorded environment is not
+restorable bit-exactly — 1-thread and 8-thread replicas bracket its recorded digits at
+the last ones), which §8q itself documented. The drift is consequential only for
+seeds that graze the ε=0.2 wall while scrolling: seeds 0/6 never flipped a coarse
+ladder rung (0 diffs across 100 steps); wave-1 seeds 4/11/12 flipped 6–9 late rungs
+(steps 81–95) without flipping a probe score; seeds 13/16/21 flip 40–62 rungs from
+step 30–35 and flip 3–4 late probe scores. Mechanism verdicts are measured per-run and
+unanimous (below), so the population conclusions are insensitive to this drift; the
+letter of the determinism criterion is recorded as failed for 3/9 with this attribution.
+
+**Registered phenotype distinction (per oscillator, as registered — measured from each
+run's own probes).** All 9 oscillators are **behavioural + functional oscillators with
+zero representational oscillation**: behavioural transitions 13–36 per 100 episodes,
+functional transitions 3–28, representational transitions **0**, with decode = 1.000 at
+**all 477 dense probes (9 × 53)** and substitution ∈ [0.48, 1.0] in every run.
+Accuracy flips repeatedly while the answer remains perfectly decodable throughout —
+the instability is in utilisation, not in the representation.
+
+**The crossing is measured, and it is not a margin collapse.** The registered M1
+instrument (margin distance, abs_margin_mean/‖w_r‖) moves the **wrong way**: at the
+first high→low transition in 9/9 oscillators, margin distance does **not** collapse
+(0/9 cross the registered ≤ 50%-of-high-median rule), and phases merged show margin
+distance is **larger** when access is dead (low/high median ratio ≥ 1 in 9/9, seed 0:
+0.122 vs 0.078; pooled off/on mean ratio 1.56) — the readout is *confidently wrong*
+while access is dead. The variable that does collapse-through-zero is the §8l stage-A
+boundary-position instrument, `boundary_vs_mid` (readout boundary distance from the
+class-0/class-1 state-centroid midpoint):
+
+| seed | bvm range | access-ON max | access-OFF min | \|bvm\|<0.5 rule |
+|---|---|---|---|---|
+| 0 | −1.46 … +1.10 | −0.38 | +1.10 | 53/53 |
+| 4 | −0.79 … +1.32 | −0.48 | +1.32 | 53/53 |
+| 6 | −0.88 … +1.37 | −0.49 | +1.37 | 53/53 |
+| 11 | −0.74 … +1.00 | −0.48 | +1.00 | 53/53 |
+| 12 | −0.86 … +0.88 | −0.49 | +0.88 | 53/53 |
+| 13 | −0.85 … +1.30 | −0.46 | +1.30 | 53/53 |
+| 16 | −1.34 … +0.96 | −0.48 | +0.96 | 53/53 |
+| 17 | −2.25 … +0.50 | −0.05 | +0.50 | 53/53 |
+| 21 | −1.05 … +1.02 | −0.50 | +1.02 | 53/53 |
+
+Every oscillator sweeps full translation both signs (**9/9**), and the single rule
+|bvm| < 0.5 separates access-ON from access-OFF on **409/409 probes** (accuracy 1.000
+in every seed). Access loss and access regain are the same geometric event run in
+opposite directions across the frozen readout boundary.
+
+**How the translation is executed (per-step record).** The ε=0.2 wall is reached by
+episode ~5 and stays pinned (cumulative displacement ≈ 0.19–0.20 for all 100 episodes
+in every run); after that, most steps are rejected outright and the entire
+100-episode history is driven by a small number of accepted steps (α ∈ [0.0078, 0.25])
+whose state projections (§8u records ds·w_r every step) move the cloud along the
+readout direction. J instruments at the 45 registered episode points (45 builds, 39
+with a rejected step at the observation point — those rows are NaN by construction):
+the linear residual is ≤ 10⁻³ everywhere (dθ ≈ 2×10⁻³), so the steps are deep in the
+linear regime; the measured curvature ratio (realised |Δs| / ‖J·Δθ‖) is a
+near-constant **0.25** (median 0.251, IQR 0.247–0.254, range 0.114–0.268) — sub-linear,
+in contrast to the 10–106× curvature measured at full-magnitude Adam steps (§8s), and
+null_frac (fraction of J·Δθ in the state-workspace null space) 0.26–0.48.
+
+**U3 (registered discriminant).** Between successive high phases: min cos ≥ 0.95 for
+4/9 oscillators (4, 13, 16, 17), 0.88–0.94 for the other 5, replacement band (< 0.8)
+**0/9**; per-phase class-mean direction shifts 0.005–0.09. The representation is never
+replaced; at the registered ≥ 0.95 bar, 4/9 are "the same representation re-accessed"
+and 5/9 fall in the registered grey zone with decodability identically 1.000 and tiny
+class-mean shifts — consistent with the same representation, reported as measured.
+
+**Registered mechanism outcomes (scored exactly as written, first-match M1→M2→M3):**
+- **M1 boundary-crossing: fails its letter 9/9** — first conjunct (margin distance
+  collapses at access loss) fails at every measured transition (0/9), and the U3 conjunct
+  (cos ≥ 0.95) is met by only 4/9. **Its spirit — the state crosses the frozen readout
+  boundary — is confirmed by a sibling instrument** (boundary_vs_mid full cycles 9/9;
+  deterministic |bvm| separator).
+- **M2 representation-replacement: fails 9/9** (min cos 0.88–0.98 > 0.8; decode 1.000
+  at all probes).
+- **M3 utilisation-only instability: passes its letter 9/9** (first-match; the
+  low/high margin-distance ratio ≥ 0.8 everywhere) and is the recorded verdict for all
+  nine oscillators. **Its landing — "without a state-boundary crossing", access decided
+  by fluctuations — is falsified by the measurement**: the crossing is observed directly,
+  access is decided by cloud position (|bvm| rule, 409/409), and the low phase is a
+  deterministic state (identical no-update repeats; frozen holds never flip).
+- **M4: not triggered.**
+
+**Registered letter vs measured spirit (explicit discrepancy statement).** The
+registered M-verdict table must be reported as all-M3 (it is, by construction of the
+first-match order), but the M3 *letter* wins while the M3 *explanation* (fluctuation /
+no crossing) is the one mechanism claim the data refute; and the M1 *letter* loses
+while the M1 *mechanism* (boundary crossing) is what occurs. The discrepancy is
+instrumentable, not a matter of taste: margin distance measured in state units
+(|margin|/‖w_r‖) is anti-phase to access because a translation past the boundary
+leaves the classes wrong-side with *increasing* signed distance — the correct GEOMETRY
+variable is boundary position relative to the class cloud (boundary_vs_mid), which is
+exactly the quantity §8l stage A used to characterise the delay-30 failures in the
+first place (translated boundaries, one class entirely wrong-side — §8u shows that
+same phenotype being executed dynamically, twice per cycle, on a 100-episode staircase).
+
+**Section-level bounds.**
+
+1. **Mechanism headline (measured):** the ε=0.2 access oscillation is a **translation
+   of an unchanged, fully decodable state representation across the frozen readout's
+   decision boundary** — loss and regain are the same translation run in opposite
+   directions, executed by a handful of tiny accepted optimizer steps whose state
+   projections move along the readout direction; the readout is confidently wrong
+   during loss (margins larger, not smaller); no update ever restores access without a
+   parameter change (frozen hold), and the representation is never replaced
+   (decode 1.000 throughout; replacement band 0/9).
+2. The budget wall is *why* the system can oscillate without dying: the walker is
+   pinned against ε at all times, can only take small accepted steps, and those steps
+   — not the rejected bulk — decide which side of the boundary the cloud sits on. This
+   is the same wall-riding quantified cross-seed in §8q; here it is seen executing the
+   failure mode it produces.
+3. §8t's lesson is localised: not only is tolerance not predictable from capture-point
+   geometry (§8t), the oscillating walkers' own geometry at access loss is *anti-phase*
+   to the naive margin-collapse prediction — the falsified geometric instrument is
+   mis-signed, not merely weak. Boundary-position (bvm) is the correct variable and it
+   is deterministic to the rule's binarisation.
+4. The determinism caveat is real but bounded: §8u is bit-faithful to today's recipe
+   (pure 100-episode control bit-identical), 6/9 runs also reproduce §8q's records
+   bit-for-bit, and the 3 discrepancies are quantised-score flips (≤ 4 of 48 values)
+   caused by environment-level FP drift amplifying at late wall-grazing steps. Every
+   mechanism measured in this section is per-run and unanimous, so none depends on the
+   §8u↔§8q comparability at score level.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
