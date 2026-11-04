@@ -2525,22 +2525,27 @@ while access is dead. The variable that does collapse-through-zero is the §8l s
 boundary-position instrument, `boundary_vs_mid` (readout boundary distance from the
 class-0/class-1 state-centroid midpoint):
 
-| seed | bvm range | access-ON max | access-OFF min | \|bvm\|<0.5 rule |
-|---|---|---|---|---|
-| 0 | −1.46 … +1.10 | −0.38 | +1.10 | 53/53 |
-| 4 | −0.79 … +1.32 | −0.48 | +1.32 | 53/53 |
-| 6 | −0.88 … +1.37 | −0.49 | +1.37 | 53/53 |
-| 11 | −0.74 … +1.00 | −0.48 | +1.00 | 53/53 |
-| 12 | −0.86 … +0.88 | −0.49 | +0.88 | 53/53 |
-| 13 | −0.85 … +1.30 | −0.46 | +1.30 | 53/53 |
-| 16 | −1.34 … +0.96 | −0.48 | +0.96 | 53/53 |
-| 17 | −2.25 … +0.50 | −0.05 | +0.50 | 53/53 |
-| 21 | −1.05 … +1.02 | −0.50 | +1.02 | 53/53 |
+| seed | bvm min–max sweep | access-ON \|bvm\| max | access-OFF \|bvm\| min | collapse side | \|bvm\|<0.5 rule |
+|---|---|---|---|---|---|
+| 0 | −1.46 … +1.10 | 0.490 | 0.518 | + | 53/53 |
+| 4 | −0.79 … +1.32 | 0.476 | 0.509 | + | 53/53 |
+| 6 | −0.88 … +1.37 | 0.489 | 0.518 | − | 53/53 |
+| 11 | −0.74 … +1.00 | 0.490 | 0.506 | + | 53/53 |
+| 12 | −0.86 … +0.88 | 0.492 | 0.501 | − | 53/53 |
+| 13 | −0.85 … +1.30 | 0.494 | 0.511 | − | 53/53 |
+| 16 | −1.34 … +0.96 | 0.484 | 0.513 | − | 53/53 |
+| 17 | −2.25 … +0.50 | 0.463 | 0.503 | + | 53/53 |
+| 21 | −1.05 … +1.02 | 0.495 | 0.510 | − | 53/53 |
 
-Every oscillator sweeps full translation both signs (**9/9**), and the single rule
-|bvm| < 0.5 separates access-ON from access-OFF on **409/409 probes** (accuracy 1.000
-in every seed). Access loss and access regain are the same geometric event run in
-opposite directions across the frozen readout boundary.
+Recorded correction (§8v amendment 1): an earlier version of this table titled the two
+middle columns by the wrong statistic direction (per-seed ON minima / OFF maxima); the
+values above are the corrected readout from the same record. Every oscillator sweeps
+full translation both signs (**9/9**) — OFF-side probes occur on either sign (the
+collapse direction is negative-bvm for seeds 6/12/13/16/21 and positive for 0/4/11/17)
+— and the |bvm| < 0.5 rule separates access-ON from access-OFF on **409/409
+oscillator probes** (accuracy 1.000 in every seed; population gap (0.4948, 0.5013)).
+Access loss and access regain are the same geometric event run in opposite directions
+across the frozen readout boundary.
 
 **How the translation is executed (per-step record).** The ε=0.2 wall is reached by
 episode ~5 and stays pinned (cumulative displacement ≈ 0.19–0.20 for all 100 episodes
@@ -2732,6 +2737,64 @@ construction; V3's promise is the elimination of *wrong-side crossings*, not
 mastering every maintenance failure. Finally: §8v assertions about "the system can
 recognise" are instrument claims about a measured statistic, not claims about
 self-appraisal.
+
+### §8v amendment 1 (recorded before any §8v cohort result is used)
+
+**Trigger.** A single-pipeline smoke debugging run (seed 22, stopped before any scoring)
+showed the *stable* comparator starting at bvm +0.285 and reaching +0.38 with access
+intact — inside the registered (0, 0.5) "transition zone" as titled — while the §8u
+record itself had already shown (on re-inspection) access-OFF probes at *negative* bvm
+(seed 0, episode 1: bvm −1.45 with substitution 0.52). Re-checking my population script
+used to derive the registration's thresholds revealed a statistic-direction error: I
+had recorded the *max of per-seed access-ON minima* (−0.054 for seed 17) as "access-ON
+never exceeded bvm = −0.054", which is not the max over access-ON probes. The sign-based
+form of the registered V1/V2 rules is therefore factually wrong, and the provenance
+paragraph quoted the wrong direction statistics. Recorded here, corrected below, before
+any cohort scoring: **no §8v result has been used yet**; the smoke run is excluded from
+scoring (it was an implementation smoke test, partial, and its Δbvm numbers are coped
+only as the trigger of this amendment — the fresh cohort runs are the evidence).
+
+**Corrected constants (from the §8u record, as verified by a fresh readout of the
+committed CSVs).** Access is scored by substitution (functional ground truth, bounded
+{0.48, 0.52, 1.0}); the correct statistic direction is |bvm|:
+
+- max |bvm| over access-ON dense probes (233 access-ON probes of the 477 dense
+  probes over the 9-oscillator §8u record): **0.4948** (max per seed 0.463–0.494).
+- min |bvm| over access-OFF dense probes: **0.5013** (the closest-to-edge OFF probe;
+  per seed 0.503–0.518).
+- Wrong-side OFF probes occur on **both signs** — the reference cloud translates the
+  boundary past *either* class (seeds 0/4/11/17 collapse in the negative bvm
+  direction, 6/12/13/16/21 in positive, from their dense records).
+- The pinned threshold |bvm| < 0.5 sits INSIDE the measured gap (0.4948, 0.5013),
+  essentially mid-gap. **The numeric threshold survives unchanged**; only the rule's
+  sign handling and the quoted provenance statistics were wrong.
+
+**Amended V1 (replaces the sign-based V1-D/V1-C).** Access-ON iff **|bvm| < 0.5**;
+access-OFF iff **|bvm| ≥ 0.5**; there is no sign condition and no (0, 0.5) transition
+zone in classification. Non-band wording is void (the gap is a 0.0065-wide measured
+interval, treated as the rule's granularity). V1-C specificity and seed-14 conditions
+unchanged in intent: seed 14 must classify access-OFF continuously; 18/22 episodes must
+classify consistently with their recorded access states.
+
+**Amended V2 rule (replaces the sign-based fire condition).** Fire at episode e iff
+**|bvm_e| + v_e ≥ 0.4948** where v_e = |bvm_e| − |bvm_{e−1}| ≥ 0 (one-episode
+extrapolated |bvm| reaches the measured access-ON edge — the strongest lead-time
+forecaster available at per-episode resolution). Prediction claim unchanged: a high→low
+behavioural drop occurs at the first episode e' > e with delayed < 0.6, lead
+L = e' − e ≥ 1. False-alarm accounting unchanged (no drop within W = 3). V2-B baseline
+(b) stays |Δbvm|-based; V2-N stays.
+
+**Amended V3 guard (sign handling).** The guard rejects a candidate step only if its
+*post-step* |bvm| would exceed T_OFF = 0.5 from an on-side start (|bvm| < 0.5), in
+**either** direction (upward or downward past either class edge); steps that move
+|bvm| toward 0 (toward the mid/boundary-aligned region) are never restricted, ensuring
+the seed-14 residue (if any) can be rescued and no trap is created.
+
+**In-sample statement (recorded).** Every bvm-family constant in this registration is
+derived from the §8u record — the same record the rules will be pre-checked on. The
+out-of-sample test for V1/V2 is the fresh §8v cohort (12 checkpoints re-run with the
+per-episode instrument, never observed before registration). V2-P/V1-D verdicts come
+from the fresh runs only.
 
 ## 9. Reproduction
 
