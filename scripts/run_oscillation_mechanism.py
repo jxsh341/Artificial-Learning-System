@@ -361,7 +361,7 @@ def run_one(tag: str, ck_path: Path, run_dir: Path) -> dict:
     ep_wp: list[int] = []
     interrupt_info: dict | None = None
     ring: dict | None = None          # 1-step ring: theta_pre + s_pre + ds_norm
-    trans_done = {"hl": False, "lh": False}
+    trans_done = {"hl_crossing": False, "lh_crossing": False}
     prev1 = prev2 = None
 
     def quick() -> dict:
