@@ -138,6 +138,7 @@ def run_one(tag: str, ck_path: Path, run_dir: Path) -> dict:
 
     pre_summary = cr._state_summary(
         model, test_ds, delay, marker_dim, generic_blank, seed, run_dir, "pre")
+    snap_start = cr.param_group_snapshot(model)
 
     blank = sc.observe_instances(test_ds, [0], keep_markers=False,
                                  marker_dim=marker_dim, generic_blank=generic_blank)
@@ -238,8 +239,7 @@ def run_one(tag: str, ck_path: Path, run_dir: Path) -> dict:
     return {
         "tag": tag, "seed": seed, "delay": delay,
         "rubric": rubric, "q_determinism_check": q_check,
-        "param_deltas": {k: float(v)
-                         for k, v in cr.param_group_snapshot(model).items()},
+        "param_deltas": cr.param_group_deltas(snap_start, cr.param_group_snapshot(model)),
         "n_episodes": EPISODES,
     }
 
