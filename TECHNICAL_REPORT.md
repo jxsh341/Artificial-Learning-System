@@ -2440,6 +2440,37 @@ dynamics); §8l's readout-side oscillation is a different operating point and is
 re-run here; no architecture change; §8q results untouched
 (`scripts/run_oscillation_mechanism.py`, `results/delay30_oscillation/`).
 
+### §8u amendment (recorded before any §8u run, before the registrations are used)
+
+1. **Cohort correction (factual error in the registration).** The registration named the
+   oscillator cohort "seeds 0, 14, 16, 17, 21 (5)" from a summary-level recollection of
+   §8q. A direct recount of the §8q ε=0.2 `training_probes.csv` trajectories with the
+   registered hysteresis (≥ 3 transitions between ≥ 0.9 and ≤ 0.6) gives **9 oscillators:
+   seeds 0, 4, 6, 11, 12, 13, 16, 17, 21** (transitions 3–10). Seed 14 makes only 2
+   transitions and ends in sustained access loss (≈ 0.52 from episode 3 onward) — a
+   **permanent access-collapse phenotype, not an oscillator**; it is recorded as a
+   non-oscillating comparator (its capture geometry is already measured in §8t). Seeds 18
+   (0 transitions) and 22 (1) are likewise excluded. The correct cohort is therefore the
+   9 disk-derived oscillators. Recorded before any instrumented re-run; no §8q result is
+   changed.
+2. **J-instrument implementation (transitions + fixed episodes).** Transitions are
+   identified in discrete time from the per-episode quick probes (a high→low transition
+   episode is the first episode with delayed < 0.6 whose predecessor is ≥ 0.9). At every
+   episode start a 1-step ring snapshot of (θ_pre, s_pre on the 16-instance probe batch)
+   is taken; at the first detected high→low and first low→high crossing, and at fixed
+   episodes **{15, 45, 80}**, J is evaluated at that episode's θ_pre by temporarily
+   restoring parameters (no replay; optimiser moments untouched), and the linear
+   prediction ‖J·Δθ‖ is compared with the realised per-instance mean |Δs| of the same
+   step (per-phase curvature ratio), plus the nulling-style residual
+   ‖(I−UUᵀ)J·Δθ‖/‖J·Δθ‖ (pinv rcond 1e-6, §8s convention).
+3. **Determinism cross-check made per-episode.** The re-run's per-episode quick probes
+   must reproduce §8q's recorded 15-probe values exactly (thread-matched,
+   OMP_NUM_THREADS=1). All evaluation-side instrumentation (quick probes, captures, w_r,
+   dense probes) is wrapped in `torch.random.fork_rng` so it cannot perturb the training
+   RNG stream; the training stream itself is the registered §8q recipe, untouched.
+4. **Cost note (registered scaling, not a change).** n = 9 with dense instrumentation;
+   J instruments run 5× per oscillator (2 transitions + 3 fixed), not per-episode.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
