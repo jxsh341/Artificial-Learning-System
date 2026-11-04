@@ -109,6 +109,7 @@ class InstrumentedStep:
         self.optimizer = optimizer
         self.budget = budget_search
         self.groups = group_map(model)
+        self.log: list[dict] = []
         self.wrapped = optimizer.step
         optimizer.step = self.step  # type: ignore[method-assign]
 
@@ -170,18 +171,18 @@ def dense_probe(model, test_ds, blank, delay, marker_dim, generic_blank, seed,
         w_rn = w_r / w_r.norm() if float(w_r.norm()) > 0 else w_r
         w_p, mu = rg.probe_direction(st["pre_response"], st["_label"], lam=1.0)
         var = []
+        Xn = X.numpy()
         for c in (0, 1):
-            Xc = X[labels == c]
+            Xc = Xn[labels == c]
             if len(Xc) > 1:
-                var.append(Xc.var(0, ddof=1).numpy())
+                var.append(Xc.var(0, ddof=1))
         pooled = np.maximum(np.mean(var, axis=0), VAR_FLOOR) if var else np.full(X.shape[1], VAR_FLOOR)
         row = {
             "abs_margin_mean": float(np.abs(margin).mean()),
             "m_dist": float(np.abs(margin).mean() / float(w_r.norm())),
             "state_norm_mean": float(X.norm(dim=-1).mean()),
             "disp_state": float(np.sqrt(pooled.mean())),
-            "class_sep_state": float(
-                torch.linalg.vector_norm(X[labels == 1].mean(0) - X[labels == 0].mean(0))),
+            "class_sep_state": float(np.linalg.norm(Xn[labels == 1].mean(0) - Xn[labels == 0].mean(0))),
             "readout_norm": float(w_r.norm()),
             **{k: float(v) for k, v in bnd.items()},
         }
@@ -195,8 +196,8 @@ def dense_probe(model, test_ds, blank, delay, marker_dim, generic_blank, seed,
     if wpl > 0:
         wp_np = wp_np / wpl
     row["_wp"] = wp_np
-    row["_dmu"] = X[labels == 1].mean(0).numpy().astype(np.float64) \
-        - X[labels == 0].mean(0).numpy().astype(np.float64)
+    row["_dmu"] = Xn[labels == 1].mean(0).astype(np.float64) \
+        - Xn[labels == 0].mean(0).astype(np.float64)
     return row
 
 
