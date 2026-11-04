@@ -2352,6 +2352,94 @@ indicators (a measurement made during training, not before); (ii) the anisotropy
 δ*(u_rand)/δ*(u_grad) as a descriptive fragility index — suggestive but broken by seeds
 0 and 22 as a rank predictor.
 
+## 8u. The access-oscillation mechanism: phase-resolved measurements (pre-registered)
+
+**H8u:** the access oscillation observed under budgeted encoder adaptation (§8q, ε=0.2:
+5/12 runs switching between delayed 1.00 and ~0.50, e.g. seed 0: 1.00 ep3–5 → chance
+10–40 → 1.00 50–80 → chance 90–100) is the state crossing the frozen readout's decision
+boundary and returning — i.e. a **utilisation** instability at a stable representation,
+not a representational one. §8t supplies the premise: capture-point geometry does not
+predict tolerance, so the boundary is crossed *dynamically*; §8u observes the crossing
+directly.
+
+**Cohort:** the 5 §8q ε=0.2 access-oscillator checkpoints (seeds 0, 14, 16, 17, 21),
+re-run with the **identical §8q ε=0.2 recipe** (same BudgetSearch line search, same
+RNG stream, frozen readout, 100 episodes) plus dense instrumentation. The re-run must
+reproduce the §8q 15-probe trajectories (thread-matched determinism check, as in
+§8t↔§8s).
+
+**Registered phenotype distinction (per oscillator — the three forms are not
+interchangeable):** **behavioural** oscillation = delayed accuracy alternates;
+**functional** = substitution (subst_diff_follows) alternates; **representational** =
+decodability alternates. Each oscillator is classified by which of the three actually
+oscillates — accuracy may flip while the answer stays perfectly decodable (utilisation
+instability), and that distinction is a registered output, not an interpretation.
+
+**U1 — phase-resolved instrumentation (every oscillator, 100 episodes):**
+- every episode: delayed/reset/immediate (quick_probe), raw gradient norm, realised
+  step norm per group, Adam moment norms (exp_avg, exp_avg_sq per group);
+- state-content + geometry probe schedule: every episode for 1–30 (where §8q's
+  transitions concentrate), every 2 for 31–60, every 5 for 61–100. Each probe: decode
+  (ridge CV), subst_diff_follows, subst_same, zero/shuffled controls (the §8q state
+  content), and from the same capture: abs_margin_mean and per-class margins (actual
+  response-step logits), boundary_vs_mid, state norm, dispersion, class separation, and
+  the local readout direction w_r;
+- **margin distance** to the behavioural boundary in state units
+  (abs_margin_mean/‖w_r‖) at every probe — the quantity that must collapse at access
+  loss if H8u is right;
+- **per-step state displacement vector** Δs every episode (captures before/after the
+  step): norm, and signed projection onto the current w_r (progress toward vs away from
+  the boundary);
+- **J-based curvature/residual at transition episodes only** (the first high→low and
+  first low→high crossing plus 3 fixed episodes — sampled, registered as such, since a
+  per-episode 128×30,025 Jacobian is ~84 s): ‖J·Δθ‖ (linear prediction) vs realised
+  |Δs| (per-phase curvature ratio), and the nulling-style state residual.
+
+**U2 — interrupt / no-update / resume (one interrupt per oscillator).** Online
+interrupt rule: the first episode e* ≥ 3 with delayed < 0.6 following ≥ 2 consecutive
+episodes ≥ 0.9 (the first sustained high→low crossing). At e*: snapshot parameters,
+Adam moments, and env/torch RNG; then (a) the full battery and (b) **5× repeated
+state-content evaluation with the optimiser disabled** — is the low phase a stable
+state or evaluation noise?; (c) a **frozen-hold control**: 10 further episodes with
+updates disabled (data stream still consumed) — access must NOT return without
+parameter change; if it does, the "oscillation" is an evaluation/sampling phenomenon,
+not dynamics; (d) resume from the snapshot with exact RNG restoration to episode 100 —
+a pipeline-integrity check (bit-identical continuation expected single-threaded; any
+divergence is reported).
+
+**U3 — cycle-comparative geometry (same representation vs replacement).** From U1's
+probes, segment the trajectory into high/low phases (registered hysteresis ≥ 0.9 /
+≤ 0.6). Across successive high phases: cos of the ridge decode directions, class-mean
+state distance, boundary_vs_mid shift, margin distributions. Cos ≥ 0.95 between cycles
+= the *same* representation re-accessed; < 0.8 = a *new* representation that happens to
+encode the answer. Registered discriminant, not an interpretation.
+
+**Phase ordering (measured, not assumed).** At every high→low transition, the analysis
+reports which instrument crosses its registered threshold first — margin distance,
+decode, substitution, dispersion, class separation — establishing whether functional
+failure precedes, follows, or coincides with geometric change. The candidate sequence
+(access established → updates weaken access → boundary crossed → state altered → access
+returns) is a hypothesis to be ranked against the measurements, not an assumption.
+
+**Pre-registered mechanism outcomes (per oscillator, then population):**
+- **M1 boundary-crossing:** margin distance collapses at access loss (≤ 2 probes before
+  the accuracy drop) and is restored at regain; cycle high phases are the same
+  representation (U3 cos ≥ 0.95). H8u confirmed.
+- **M2 representation replacement:** access regain comes with new decode direction /
+  state geometry (U3 cos < 0.8) — the system re-solves rather than re-accesses.
+- **M3 utilisation-only instability:** margins/geometry stay near-constant while
+  behavioural/substitution readouts flip — instability of the readout interface without
+  a state-boundary crossing (would implicate marginal stability: |margin| small but
+  nonzero throughout, with access decided by fluctuations).
+- **M4 mixed/other:** the data fit none cleanly; the measured ordering is reported.
+
+**Bounded claims.** n = 5 oscillators, one budget (ε=0.2), one recipe; J-based
+instruments are sampled at transitions (registered), not per-episode; the frozen-hold
+control is 10 episodes (short by design — its role is artifact exclusion, not
+dynamics); §8l's readout-side oscillation is a different operating point and is not
+re-run here; no architecture change; §8q results untouched
+(`scripts/run_oscillation_mechanism.py`, `results/delay30_oscillation/`).
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
