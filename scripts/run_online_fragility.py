@@ -80,10 +80,12 @@ def online_probe(model, test_ds, delay, marker_dim, generic_blank) -> dict:
                                      marker_dim=marker_dim,
                                      generic_blank=generic_blank)
         w_r = rg.readout_direction(model, blank, X.mean(0)).detach().double()
+        dec = sc.ridge_decode_cv(X.numpy(), labels, lam=1.0, seed=0)
         row = {
             **{k: float(v) for k, v in bnd.items()},
             "state_norm_mean": float(X.norm(dim=-1).mean()),
             "readout_norm": float(w_r.norm()),
+            "decode_pre_response_cv": float(dec["accuracy"]),
         }
     return row
 
