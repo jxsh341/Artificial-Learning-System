@@ -87,11 +87,26 @@ def main() -> int:
         bvm0 = float(g["df"]["boundary_vs_mid"].iloc[0])
         starts_on = (abs(bvm0) < 0.5)
         rej = g["guard"].get("total_rejects"); streak = g["guard"].get("max_consecutive_reject_episodes")
+        # E4 fidelity: accepted-step bvm_pred vs next episode's actual test bvm
+        sl = GUARD / f"D800_interleaved_seed{seed:03d}__guard" / "step_log.csv"
+        err_mean = float("nan")
+        if sl.exists():
+            sl_df = pd.read_csv(sl)
+            if "bvm_pred" in sl_df.columns:
+                pred = sl_df["bvm_pred"].to_numpy(float)
+                actual = g["df"]["boundary_vs_mid"].to_numpy(float)
+                n = min(len(pred), len(actual) - 1)
+                ok = pred[:n] == pred[:n]
+                if ok.any():
+                    err_mean = float(np.mean(np.abs(pred[:n][ok] - actual[1:1 + n][ok])))
+        gnn_ratio = (g["gnn"] / c["gnn"]) if (c and c["gnn"] > 0) else float("nan")
         rows.append({
             "seed": seed, "starts_on": starts_on,
             "guard_trans": n_guard_trans, "ctrl_trans": n_ctrl_trans,
             "decode_min": dec_min, "decode_below_0.995": dec_below,
             "gnn_guard": g["gnn"], "gnn_ctrl": (c["gnn"] if c else np.nan),
+            "gnn_ratio": gnn_ratio,
+            "pred_err_mean": err_mean,
             "rubric_guard_delayed": g["rubric"]["delayed_ok"],
             "guard_rejects": rej, "max_streak": streak,
         })
