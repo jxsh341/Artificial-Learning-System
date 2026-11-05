@@ -2826,6 +2826,43 @@ fails, the report must state explicitly that the gate's *empirical necessity* wa
 learned from runs 1–4, and that its textual pedigree (original registration) predates
 them — both facts recorded, and the reader may weigh the evidence accordingly.
 
+### §8v amendment 3 (recorded mid-V3, after the guard canary; before any further V3 run)
+
+**Trigger (measured, canary run seed 016 — kept and scored as the discovery run).** The
+registered guard reads post-candidate bvm from the 16-instance line-search replay
+states. On the replay batch, the statistic `boundary_vs_mid = −mid/sep` is **degenerate**:
+whenever the class-mean-margin separation on the 16 instances approaches zero, |bvm|
+explodes (recorded values up to 9.7×10⁶ in the canary's step log), the on-side gate
+(|bvm| < 0.5) then reads "already OFF", and the guard stops protecting exactly at the
+states where protection is required. The canary crossed the boundary 17 times with only
+4 guard-rejecting episodes; a division-free alternative predicate (wrong-side ⇔ some
+class-mean margin negative) was tested against the §8u record and REJECTED (23%
+phase agreement — the predicate is empirically false). The defect is in the statistic's
+normalisation on the small replay batch, not in the predicate.
+
+**Amended guard instrument (for all V3 runs after the canary).** Same predicate, same
+T_OFF = 0.5, same on-side gate, same ladder semantics — but the post-candidate bvm is
+**predicted on the test cloud** (the 50-instance set the V1/V2 thresholds were measured
+on, whose separation is healthy: |sep| ≥ 0.30 on all 1,212 recorded episodes) using the
+exact linearity of the readout in the state:
+
+  bvm_pred = bvm_test_pre − (mid_probe_cand − mid_probe_pre) / sep_test_pre
+
+where bvm_test_pre and sep_test_pre are the previous episode's online-probe values (the
+pre-step test-cloud state; no extra capture), mid_probe_cand / mid_probe_pre are the
+class-mid margins of the candidate/pre-step replay states (already computed per
+candidate — zero extra captures), and the readout is linear in the state so Δmid is
+exact on the replay batch and extrapolated to the test cloud. If |sep_test_pre| < 0.05
+(never observed) the step is logged unguarded. The prediction is an extrapolation from
+16 replay instances to the 50-instance cloud — registered as such, and its fidelity is
+reported (V3-E4).
+
+**Run accounting.** The canary (seed 016) is KEPT under the original instrument and
+scored in the original-instrument row (its blind spot is the measured trigger);
+the remaining 11 runs use the amended instrument. V3-E1/E2/E3 verdicts are computed on
+the amended-instrument runs; the canary is reported alongside, and any verdict
+difference between instruments is stated explicitly.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`

@@ -44,12 +44,18 @@ BASE = ROOT / "results" / "delay30_fragility_guard"
 
 
 class GuardedBudgetSearch(rsb.BudgetSearch):
-    """BudgetSearch + registered V3 guard.
+    """BudgetSearch + registered V3 guard (amendment-3 instrument).
 
-    For every ladder candidate the post-candidate bvm is read from the
-    candidate's own replay states (cached -- no extra capture).  A candidate
-    is admissible iff (displacement <= eps) and (guard_ok).  Largest admissible
-    alpha wins; alpha = 0 on total rejection (registered semantics).
+    Post-candidate bvm is PREDICTED ON THE TEST CLOUD via the readout's exact
+    linearity in the state:  bvm_pred = bvm_test_pre - (mid_cand - mid_pre) /
+    sep_test_pre.  bvm_test_pre / sep_test_pre come from the previous
+    episode's online probe (the pre-step test-cloud state; injected per
+    episode by the runner); mid_cand / mid_pre are the class-mid margins of
+    the candidate / pre-step replay states (already computed per candidate).
+    Guard predicate (registered): reject a candidate iff |bvm_test_pre| < 0.5
+    and |bvm_pred| >= 0.5 (either direction); steps toward 0 unrestricted;
+    alpha = 0 fallback.  If |sep_test_pre| < 0.05 (never observed) the step is
+    logged unguarded.
     """
 
     def __init__(self, *args, **kwargs):
@@ -58,7 +64,9 @@ class GuardedBudgetSearch(rsb.BudgetSearch):
         self._guard_rejects = 0
         self._guard_max_streak = 0
         self._guard_streak = 0
-        self._bvm_pre_history: list[float] = []
+        self._unguarded_steps = 0
+        self.test_bvm_pre = float("nan")   # injected per episode by runner
+        self.test_sep_pre = float("nan")
 
     @torch.no_grad()
     def _displacement_full(self):
@@ -72,6 +80,14 @@ class GuardedBudgetSearch(rsb.BudgetSearch):
             self.model.train()
         return st
 
+    @staticmethod
+    @torch.no_grad()
+    def _mid_of(st) -> float:
+        margin = st["_signed_margin"].numpy().astype(np.float64)
+        labels = st["_label"].numpy().astype(int)
+        bnd = rg.boundary_statistics(margin, labels)
+        return 0.5 * (bnd["proj_readout_class0"] + bnd["proj_readout_class1"])
+
     @torch.no_grad()
     def _disp_for(self, alpha, theta_pre, deltas):
         for p, t, d in zip(self.trainable, theta_pre, deltas):
@@ -83,28 +99,32 @@ class GuardedBudgetSearch(rsb.BudgetSearch):
         return disp, alpha
 
     @torch.no_grad()
-    def _bvm_of(self, st) -> float:
-        margin = st["_signed_margin"].numpy().astype(np.float64)
-        labels = st["_label"].numpy().astype(int)
-        return rg.boundary_statistics(margin, labels)["boundary_vs_mid"]
-
-    @torch.no_grad()
     def step(self, closure=None):
         theta_pre = [p.detach().clone() for p in self.trainable]
         out = self.orig_step(closure)
         deltas = [p.detach() - t for p, t in zip(self.trainable, theta_pre)]
 
-        bvm_pre = self._bvm_of(self._displacement_full())
-        self._bvm_pre_history.append(bvm_pre)
-        on_side = abs(bvm_pre) < T_OFF
+        mid_pre = self._mid_of(self._displacement_full())
+        on_side = abs(self.test_bvm_pre) < T_OFF
+        sep_ok = abs(self.test_sep_pre) >= 0.05
+        guard_active = bool(on_side and sep_ok and self.test_bvm_pre == self.test_bvm_pre)
+        if not sep_ok:
+            self._unguarded_steps += 1
 
         accepted = None
         guard_rej_this = 0
+        bvm_pred_used = float("nan")
         self._last_states = None
         for alpha in ALPHA_LADDER:
             d, _ = self._disp_for(alpha, theta_pre, deltas)
-            bvm_c = self._bvm_of(self._last_states)
-            guard_ok = not (on_side and abs(bvm_c) >= T_OFF)
+            if guard_active:
+                mid_cand = self._mid_of(self._last_states)
+                bvm_pred = (self.test_bvm_pre
+                            - (mid_cand - mid_pre) / self.test_sep_pre)
+                bvm_pred_used = bvm_pred
+                guard_ok = abs(bvm_pred) < T_OFF
+            else:
+                guard_ok = True
             if d <= self.eps and guard_ok:
                 accepted = (alpha, d)
                 break
@@ -129,7 +149,9 @@ class GuardedBudgetSearch(rsb.BudgetSearch):
             "raw_step_norm": raw_norm,
             "accepted_norm": alpha * raw_norm,
             "displacement": disp, "eps": self.eps,
-            "bvm_pre": bvm_pre, "guard_rejects": guard_rej_this,
+            "bvm_test_pre": self.test_bvm_pre,
+            "bvm_pred": bvm_pred_used,
+            "guard_rejects": guard_rej_this,
             "guard": True,
         })
         self.step_idx += 1
@@ -230,8 +252,12 @@ def run_one(tag: str, ck_path: Path, run_dir: Path) -> dict:
     q0 = quick()
     p0 = rf.online_probe(model, test_ds, delay, marker_dim, generic_blank)
     prev_bvm = p0["boundary_vs_mid"]
+    # amendment-3 instrument: the guard's pre-step test-cloud state is the
+    # previous episode's online-probe values (no param change in between)
+    budget_search.test_bvm_pre = prev_bvm
+    budget_search.test_sep_pre = p0["class_margin_separation"]
     ep_rows.append({"episode": 0, "frozen": False, **q0, **p0,
-                    "bvm_velocity": np.nan, "bvm_pre_step": prev_bvm,
+                    "bvm_velocity": np.nan, "bvm_test_pre": prev_bvm,
                     "guard_rejects": 0})
     print(f"  pre: delayed={q0['delayed_intact']:.3f} bvm={prev_bvm:+.4f}",
           flush=True)
@@ -257,8 +283,8 @@ def run_one(tag: str, ck_path: Path, run_dir: Path) -> dict:
                "accepted_norm": float(budget_search.log[-1]["accepted_norm"]),
                "cum_displacement": float(budget_search.log[-1]["displacement"]),
                "guard_rejects": int(budget_search.log[-1]["guard_rejects"]),
-               "bvm_pre_step": (float(budget_search.log[-1]["bvm_pre"])
-                                if "bvm_pre" in budget_search.log[-1]
+               "bvm_test_pre": (float(budget_search.log[-1]["bvm_test_pre"])
+                                if "bvm_test_pre" in budget_search.log[-1]
                                 else float("nan")),
                **prow}
         if instrument.log:
@@ -268,6 +294,9 @@ def run_one(tag: str, ck_path: Path, run_dir: Path) -> dict:
                                if (bvm == bvm and prev_bvm == prev_bvm)
                                else float("nan"))
         prev_bvm = bvm
+        # next episode's guard pre-state = this episode's test-cloud probe
+        budget_search.test_bvm_pre = bvm
+        budget_search.test_sep_pre = float(prow["class_margin_separation"])
         ep_rows.append(row)
 
         if ep % 10 == 0:
@@ -292,8 +321,10 @@ def run_one(tag: str, ck_path: Path, run_dir: Path) -> dict:
         "param_deltas": rf.cr.param_group_deltas(snap_start,
                                                  rf.cr.param_group_snapshot(model)),
         "guard_stats": {
+            "instrument": "predicted_test_bvm (amendment 3)",
             "total_rejects": int(budget_search._guard_rejects),
             "max_consecutive_reject_episodes": int(budget_search._guard_max_streak),
+            "unguarded_steps": int(budget_search._unguarded_steps),
             "rejected_steps_frac": (float((log["alpha"] == 0.0).mean())
                                     if len(log) else None),
         },
