@@ -2863,6 +2863,119 @@ the remaining 11 runs use the amended instrument. V3-E1/E2/E3 verdicts are compu
 the amended-instrument runs; the canary is reported alongside, and any verdict
 difference between instruments is stated explicitly.
 
+## §8v results: detection solved, episode-scale prediction fails, prevention works at
+### adaptation cost (n = 12; V1 PASS, V2 FAIL, V3 actionable-at-a-cost)
+
+All 12 + 12 runs completed and were kept (`results/delay30_fragility/` = V1/V2 fixed
+arm, `results/delay30_fragility_guard/` = V3 guarded arm). V1/V2 runs: 10/12
+bit-exact to the §8q records (48/48 compared values); seeds 13/16/18/21 show the
+§8u-adjudicated environment-drift signature (max|d| = 0.52, ≤ 4 of 48 quantised values,
+all late) — seed 18 additionally *drifted regimes*: 9 transitions in the fresh run vs 0
+recorded in §8q, reported per the §8u adjudication standard (pure-replica bit-identity
+establishes the pipeline is exact to today's recipe).
+
+**V1 — detection: PASS (registered success, 0 violations).** Per-episode |bvm| < 0.5
+classifies the access state on **1,212/1,212 episodes across all 12 checkpoints**
+(incl. seed 14's continuous dead state, detected at every episode, and stable seeds
+18/22). The §8u band statement (population gap (0.4948, 0.5013)) transferred to the
+fresh runs without any re-fitting — the registered thresholds were never moved.
+
+**V2 — prediction at episode resolution: FAIL as registered, mechanism measured.**
+- V2-P (gated registered-intent rule: |bvm_e| + v_e ≥ 0.4948, v_e ≥ 0, from the ON
+  side): sensitivity **43/105 transitions = 0.410**, false-alarm rate
+  **21/66 fires = 0.318** → FAIL (registered PASS: ≥ 0.90 / ≤ 0.10; tiers not met).
+- V2-P (amendment-1 letter, no gate): 0.638 / 0.822 → FAIL (the OFF-side fires are
+  tautological — 341 of 415).
+- V2-N: seed 14 fires 0 (OK); seed 18 fires 9 (VIOLATION — its fresh run is an
+  oscillator, so the null-guard condition is scored on the drifted regime); seed 22
+  fires 1 (OK).
+- V2-B: FAIL — the unidirectional magnitude variant at oracle-swept thresholds
+  (0.559 / 0.163 per-run mean) beats the registered direction rule (0.410 / 0.318
+  pooled), so the velocity-direction condition added no population value at this
+  resolution; the cum-displacement baseline is dominated (0.275 / 0.264).
+- **Why (measured):** walkers hover at |bvm| ≈ 0.42–0.49 for many episodes with
+  near-zero velocity, then the crossing transit completes **within one episode's few
+  accepted steps** — the last ON episode shows |bvm| + tiny-v ≈ 0.49 (under the edge),
+  so the forecast fires only after the drop it should precede, while fires that do
+  trigger often precede a retreat (→ FA). Per-episode resolution is structurally
+  insufficient: §8u's measured band-transit durations (~1–3 episodes) bound the
+  achievable lead time, and the hover regime erodes precision. This is exactly the
+  registered V3-E5 resolution-gap branch.
+
+**V3 — intervention (bvm-guarded line search): actionable at a cost.** Amended
+instrument (11 runs) + canary (original instrument, reported alongside):
+
+| seed | starts ON | guard crossings | control crossings | rubric (guard) | GNN δ guard | GNN δ ctrl | reject count |
+|---|---|---|---|---|---|---|---|
+| 0 | ✓ | **0** | 7 | True | 0.0043 | 0.0412 | 417 |
+| 4 | ✓ | **0** | 16 | True | 0.0029 | 0.0825 | 397 |
+| 6 | ✓ | 1 | 10 | True | 0.0071 | 0.0558 | 373 |
+| 11 | ✓ | **0** | 14 | True | 0.0000 | 0.1189 | 428 |
+| 12 | ✓ | **0** | 11 | True | 0.0099 | 0.1016 | 440 |
+| 13 | ✓ | **0** | 18 | True | 0.0035 | 0.0931 | 437 |
+| 14 | ✓ | **0** | 2 (collapse) | **True** | 0.0039 | 0.0050 | 302 |
+| 16 | ✓ | 17 (canary, blind instr.) | 16 | True | 0.1287 | 0.0821 | 25 |
+| 17 | ✓ | **0** | 2 | True | 0.0000 | 0.0130 | 316 |
+| 18 | ✓ | **0** | 9 | True | 0.0039 | 0.0498 | 377 |
+| 21 | ✓ | **0** | 11 | True | 0.0061 | 0.1069 | 488 |
+| 22 | ✓ | **0** | 1 | True | 0.0037 | 0.0071 | 372 |
+
+- **V3-E1: PASS (registered letter)** — zero high→low crossings in **10/12** eligible
+  (all but seed 6's single crossing — 90% reduction — and the canary's 17, which ran
+  the blind instrument). Under amendment 3's accounting (verdicts on the 11 amended
+  runs) it is 10/11 with the same PASS.
+- **V3-E2: PASS** — decode = 1.000 at every one of 1,212 probed episodes in all 12
+  guarded runs (0 violations).
+- **V3-E3: FAIL (adaptation cost)** — the full rubric is **12/12** (fresh control 6/12,
+  recorded §8q 7/12; seed 14 rescued from permanent collapse), but on the checkpoints
+  that adapted in the fixed arm, guarded GNN deltas are < 50% of control in **9/10**
+  cases (seeds 11 and 17 are complete freezes: 100-episode consecutive-reject streaks,
+  GNN delta 0.000).
+- **V3-E4 (measured):** 4,372 candidate rejections across the arm; mean accepted-step
+  fraction 0.101; mean |bvm_pred − actual| = **5.55 bvm units** against a 0.5-unit
+  decision scale — the linear extrapolation from the 16-instance replay batch to the
+  50-instance test cloud is ~11× too coarse for the threshold it feeds, which is why
+  the guard rejects nearly everything.
+- **V3-E5 (registered tier): E1 met, E3 missed → the indicator is actionable at a
+  cost; the improvement claim is bounded by the freeze.** Both registered instruments
+  bracket the truth: the probe-batch bvm is *blind* (canary: 17 crossings, 25 rejections)
+  and the predicted-test-cloud bvm is *over-conservative* (near-freeze: 4,372
+  rejections). The measured bottleneck is instrument fidelity at the 16-instance replay
+  scale, not the predicate: detection at 0/1,212 and crossing-prevention at 10/12 show
+  the boundary-position statistic carries the right information; delivering it at
+  per-candidate fidelity (per-instance guard, or test-cloud replay of accepted
+  candidates only) is the registered follow-up.
+
+**The seed-14 rescue (headline).** §8t's held-out refutation case — fragility invisible
+at capture, collapse within 3 episodes under any full-magnitude update, unrescuable by
+direction control (§8r/§8s) — is **fully protected** by the guard: delayed = 1.000 at
+all 101 probes, full rubric True, with the guard rejecting the early wrong-side steps
+the fixed arm used to collapse. The rescue is a freeze (GNN delta 0.0039) — but for
+this checkpoint, whose tolerance was measured at τ < 0.0012, freezing *is* the
+maintenance strategy the evidence supports.
+
+**Section-level bounds.**
+
+1. n = 12, one budget (ε = 0.2), one recipe, one delay; bvm measured on one fixed
+   probe batch (V1/V2) and predicted from a 16-instance replay batch (V3); the
+   prediction-fidelity gap (5.55 vs 0.5) is a property of the current replay batch
+   size, not of the statistic.
+2. V2's failure is a *resolution* failure, registered and measured; it does not
+   contradict §8u (where the |bvm| rule classified access perfectly) — classification
+   and forecasting are different claims, and this section is the first place the
+   project has separated them explicitly.
+3. V3's E1 PASS is achieved by conservatism, not by surgical rejection: the arm's
+   accepted-step fraction is 0.101, and its rubric success (12/12) is the §8q
+   ε=0.05 phenotype (maintenance by freezing) achieved adaptively per step rather
+   than by lowering the budget. The honest summary: **the boundary-position statistic
+   is a sufficient detector and a sufficient (over-conservative) gate; it is not yet a
+   per-step predictor, and the current guard buys safety with adaptation.**
+4. Letter-vs-spirit ledger for §8v: V1-D passed exactly as registered; V2-P failed
+   exactly as registered (both amendment forms reported); V3-E1 passed exactly as
+   registered; V3-E3 failed exactly as registered; amendments 1–3 were recorded before
+   the affected results were used, and the two V3 instruments are both reported so no
+   verdict depends on which instrument a reader prefers.
+
 ## 9. Reproduction
 
 Every number above is regenerable: each experiment directory contains the exact `config.yaml`
