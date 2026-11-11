@@ -291,8 +291,12 @@ and seeds.
   process reproduces the uninterrupted trajectory bit-for-bit) and E1b PASS
   (mid-episode interrupt recovered by episode restart; one launcher-environment re-run
   recorded in §10); (2) **query API** `inspection.SystemHandle` (probe / inspect_state
-  / summary over any checkpoint); (3) **progress-field probe** (registered M1-c,
-  PC1 decode + PC2 causal substitution — running).
+  / summary over any checkpoint); (3) **progress-field probe** (registered M1-c) —
+  **PC1 PASS 8/8**: trial phase is decodable from the recurrent state at Δ +0.55…+0.63
+  over baseline (threshold 0.15); **PC2: decodable-but-not-causally-used (2/8)** — the
+  response is driven by the carried answer content, not by trial phase (phase is
+  correlate, not cause). Report §10 has all registered criteria, verdicts and
+  letter-vs-spirit notes.
 - Reproducibility verified: `scripts/verify_reproducibility.py` regenerates all published
   metrics from committed checkpoints + configs (12/12 exact matches).
 - Open items: per-instance/per-candidate guard fidelity (§8v E4's measured 5.55-unit

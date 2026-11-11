@@ -3167,4 +3167,40 @@ the M1-c machinery). `SystemHandle` covers round-trip load, probe keys,
 `inspect_state` finiteness, summary fields, and rejects legacy checkpoints with an
 explicit error unless input dims are supplied (recorded limitation).
 
+### M1-c results (progress-field probe)
+
+All 8 seeds ran clean (fresh 400-episode condition-D runs, same registered shape as
+E1; no tracebacks). Delayed-task accuracy after training: 0.34–0.66 per seed
+(400 episodes is the same training budget as E1 — these are maintenance-regime
+models, not ceiling models).
+
+**PC1 (decodable): PROGRESS DECODED — 8/8, exactly as registered.** Multiclass ridge
+CV decodes phase `p ∈ {0,1,2,3}` from the 200 pooled delayed states at accuracy
+0.800–0.880 (per seed: 0.800, 0.805, 0.850, 0.850, 0.805, 0.840, 0.880, 0.875) vs
+majority baseline 0.250 → delta +0.550 … +0.630, ≥ 0.15 on **8/8** seeds (the
+registered threshold is exceeded ~3.7× at the worst seed). Sanity check (registered,
+not a criterion): decoding `r = 3 − p` gives accuracies identical to `p` to three
+decimals on every seed — expected by construction (bijective relabel under the same
+folds), confirming the decoder fold assignment behaved as intended.
+
+**PC2 (causal): decodable-but-not-causally-used — 2/8, exactly as registered.**
+Change rates of the response prediction when the state fed to the response step is
+replaced: treatment (the instance's own `delay_1` state — phase-mismatched,
+content-correct) 0.00–0.22; control (a *different* same-answer instance's
+`pre_response` state — phase-matched, content-altered) 0.00–0.50. Treatment > control
+on only **2/8** seeds (0 and 7); in 6/8 the phase-matched but different-instance
+donor flips the prediction *more* often than the phase-mismatched own donor. Letter:
+the registered rule was applied exactly as written — 2/8 < 6/8 → *decodable-but-not-
+causally-used*, which the registration lists as a terminal outcome of the probe.
+Spirit: the probe answers the WP1 question cleanly — the recurrent state carries a
+strong, decodable progress/phase signal (PC1), but the response does not causally
+depend on it once the carried answer content is fixed; substitution shows the
+response is driven by **what** the state carries (the computed answer / instance
+content), not by **when** in the trial the state sits. Phase in the state is
+correlate, not cause.
+
+Both terminal outcomes count as registered successes of the probe; no amendments;
+all thresholds scored exactly as registered. Raw captured states are retained per
+seed (`results/m1_progress/P_seedSSS/delayed_states.pt`) for audit.
+
 
