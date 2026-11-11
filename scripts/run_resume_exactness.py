@@ -19,9 +19,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import torch
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from artificial_system.data.graph_tasks import make_connectivity_dataset
 from artificial_system.environment.graph_environment import (
