@@ -2983,6 +2983,122 @@ used, per-seed `seed_summary.json`, raw CSVs (`metrics.csv`, `graph_locus.csv`,
 `rewired_control.csv`, `retention.csv`, `memory_curve.csv`, …), checkpoints with environment
 metadata, and an aggregated `summary.json`. Commands: `python scripts/run_experiment.py
 --config <cfg> [--graph <family>]`, `python scripts/run_curriculum_study.py --config
-configs/experiments/curriculum_study.yaml`. 117 unit tests: `pytest`.
+configs/experiments/curriculum_study.yaml`. Unit-test suite: `pytest` (count recorded
+per experiment commit; 150 green at the WP1 audit, 2026-11-10).
+
+## 10. M1 pre-registration (committed before any M1 run)
+
+Context: the WP1 readiness audit (`ALS_COGNITIVE_READINESS.md`, commit `56fbaad`, 2026-11-10)
+identified the smallest additions that let ALS contribute to a minimal unified cognitive
+loop. This section pre-registers the first three work items and their success criteria
+**before any M1 run is executed**. Item 4 of the audit's minimum requirements (a
+reward-pathway experiment) is explicitly deferred: no reward-pathway code and no
+reward-pathway runs occur in this phase. Item 5 (integration contract) is documentation
+and ships with the code. Constraints: D800 and every §8 configuration remain frozen;
+all code changes are additive with default behaviour unchanged; the full unit-test suite
+must pass before any registered run is launched; every threshold below is fixed at
+registration time.
+
+### M1-a: execution-state checkpoint contract + deterministic resume
+
+**Mechanism registered.**
+
+- `save_execution_state(path, model, optimizer, …)` stores: model parameters, optimizer
+  state, scheduler state, the three global RNG states (python / numpy / torch), the
+  serialized stream state of each named environment (sample index / cue tensors,
+  within-trial index, episode step, trial count, generator state), and the trainer's
+  global step counter.
+- **E1 — episode-boundary resume:** an interrupted run stops at an episode boundary
+  (the in-flight episode is completed first); resume continues training from the saved
+  state in a **fresh process** with no restart of learning and no re-initialisation.
+- **E1b — mid-episode resume (registered semantics: episode restart).** An episode
+  interrupted after ≥ 1 partial step is recovered from a snapshot taken at the **start**
+  of the interrupted episode (parameters, optimizer, RNG states, and both environment
+  stream positions as of that episode's reset); the partial in-flight work is discarded
+  and the episode is replayed from its beginning. Rationale (recorded): partial
+  episode losses are live autograd-graph tensors that cannot be serialized without
+  changing the backward computation; replay-from-episode-start reproduces the
+  uninterrupted trajectory exactly by construction and is the registered contract —
+  this is not a limitation to be scored down in the verdict.
+- The training loop's pause mechanism is a branch that is fully disabled by default;
+  no training arithmetic changes.
+
+**Registered experiment E1 (primary).**
+
+- Setup: condition D interleaved (alternating immediate/delayed single episodes,
+  200 each = 400 total), graph connectivity task with delay 3, `blank_mode: generic`,
+  dataset seed 123, num_nodes 60, feature_dim 16, marker_dim 2, max_path_len 3,
+  edge_density 0.05, label_mode path, neg_min_distance 3, num_train 200, num_test 50;
+  batch 16, sequence_length 32, Adam lr 1e-3 (no weight decay), grad_clip 0;
+  environment seeds `seed*2000+1` (immediate) and `seed*2000+2` (delayed); global seed
+  `set_seed(seed)`; **no probes during training** (the registered battery runs once,
+  after episode 400, so the treatment's resume boundary is inside pure training).
+- Control arm: 400 uninterrupted episodes → registered battery
+  **P = {immediate_test_accuracy, delayed_test_accuracy, delayed_intact,
+  delayed_state_reset}** on the fixed test set.
+- Treatment arm: 200 episodes → `save_execution_state` → **new process** → resume →
+  200 further episodes → same battery P.
+- PASS per seed: all four values of P **exactly equal** the control's (float equality
+  as serialized in JSON; no exclusions — runtime metadata is not part of P).
+- Arm verdict: 4/4 seeds PASS → **E1 PASS**; 3/4 → PASS-with-drift-adjudication
+  (per-seed max|ΔP| reported under the §8u environment-drift standard); ≤ 2/4 → FAIL.
+- Seeds: {0, 1, 2, 3}.
+
+**Registered experiment E1b (secondary; seed 0 only).** Interrupt 5 steps into episode
+index 200 (global step 6405) via the pause mechanism, exit the process, resume from the
+episode-start snapshot in a fresh process, complete the remaining 200 episodes (the
+interrupted episode replayed), run the same battery. PASS iff P equals the E1 control's
+seed-0 values exactly. E1b failure does not affect E1's verdict (separate criteria).
+
+**Interpretation.** Verdicts scored exactly as written; letter-vs-spirit reported. A
+failure with clean (Traceback-free) runs is a contract bug: fix, record an amendment
+here before any re-run, re-run only the affected arms.
+
+### M1-b: inspection / query API
+
+Deliverable: `artificial_system.inspection.SystemHandle` — load a checkpoint (old or
+new format), rebuild the model from the embedded configuration, and expose:
+`probe(dataset, …)` (task-accurate probe), `inspect_state(dataset, …)` (trial-point
+state capture + held-out ridge decode of the answer + state norms), `summary()`
+(step, seed, environment metadata, parameter count). Success criterion: unit tests
+(round-trip load, probe keys, inspect_state finiteness, summary fields) green. No new
+behavioural claims are registered — the API only wraps already-validated measurements.
+Limitation recorded: legacy checkpoints do not embed model input dimensions; `load`
+requires them explicitly for old-format checkpoints (new execution-state checkpoints
+embed `model_dims`).
+
+### M1-c: progress-field probe (registered; runs after M1-a passes)
+
+**Question (WP1 Investigation 1 — goals/dependencies/progress).** Is the recurrent
+state a *progress representation*: does it encode — and causally use — the position of
+the current trial relative to the response?
+
+- **Variables (fixed):** phase `p ∈ {0, 1, 2, 3}` — the trial point of a captured
+  state (`post_present` = 0, `delay_1` = 1, `delay_2` = 2, `pre_response` = 3; with
+  delay 3, `delay_3` ≡ `pre_response`); remaining `r = 3 − p` (perfectly anti-correlated
+  with p — decoding r is a sanity check, not a separate criterion); regime label
+  (immediate-context vs delayed-context capture) — secondary, descriptive only.
+- **Protocol:** 8 seeds {0..7}, same architecture and task as E1, 400 episodes
+  condition D (fresh control runs of the same shape; no reuse of E1 checkpoints —
+  registered to keep the probe self-contained). After training: one capture pass per
+  regime on the fixed 50-instance test set (`capture_trial_states`, batch 50),
+  yielding 50 states × 4 points (delayed) and 50 states × 2 points (immediate).
+- **Registered decoder:** multiclass ridge (least-squares regression onto identity
+  targets, λ = 1.0, 5-fold CV, fold seed 0), decode `p` from the 200 pooled delayed
+  states (4 classes); majority baseline = max class frequency (0.25 expected by
+  balance of trial points).
+- **PC1 (decodable):** CV accuracy − majority baseline ≥ **0.15** on ≥ **6/8** seeds →
+  *progress decoded*; 4–5/8 → tiered partial; ≤ 3/8 → **ABSENT-with-evidence** (both
+  terminal outcomes are registered successes of the probe — the probe measures, it
+  does not confirm).
+- **PC2 (causal):** state substitution at the `pre_response` point (the state tensor
+  fed to the response step). Treatment donor: same instance, same answer, captured at
+  `delay_1` (phase-mismatched). Control donor: **different** instance, same answer,
+  captured at `pre_response` (phase-matched). Metric: fraction of the 50 instances
+  whose prediction changes relative to the intact prediction, treatment vs control,
+  paired per seed. **SUPPORTED** iff mean change rate(treatment) > mean
+  change rate(control) on ≥ 6/8 seeds; otherwise *decodable-but-not-causally-used*.
+- Interpretation: PC1 and PC2 scored independently; all four outcome combinations are
+  reportable; thresholds are not re-tested after results are seen.
 
 

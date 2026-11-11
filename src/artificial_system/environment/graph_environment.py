@@ -180,6 +180,29 @@ class GraphClassificationEnvironment(Environment):
 
     # -------------------------------------------------------------- internals
 
+    def state_dict(self) -> dict:
+        """Serializable stream state for deterministic resume (M1-a).
+
+        Excludes the generic blank graph and dataset (rebuilt deterministically
+        from the config/seed at construction).
+        """
+        return {
+            "rng": self.rng.get_state(),
+            "batch_size": self._batch_size,
+            "within_trial": self._within_trial,
+            "episode_step": self._episode_step,
+            "trial_count": self._trial_count,
+            "idxs": self._idxs.clone(),
+        }
+
+    def load_state_dict(self, state: dict) -> None:
+        self.rng.set_state(state["rng"])
+        self._batch_size = int(state["batch_size"])
+        self._within_trial = int(state["within_trial"])
+        self._episode_step = int(state["episode_step"])
+        self._trial_count = int(state["trial_count"])
+        self._idxs = state["idxs"].clone()
+
     def _current_observation(self) -> GraphData:
         """Cue step 0: full instance with markers; delay/response steps: blank."""
         if self._within_trial == 0:

@@ -199,6 +199,38 @@ class CueLearningEnvironment(Environment):
 
     # --------------------------------------------------------------- internals
 
+    def state_dict(self) -> dict:
+        """Serializable stream state for deterministic resume (M1-a).
+
+        Excludes cue features / base graph (deterministic from the config);
+        includes the mapping tensors so a reversal applied before the save
+        survives the resume.
+        """
+        return {
+            "rng": self.rng.get_state(),
+            "batch_size": self._batch_size,
+            "within_trial": self._within_trial,
+            "episode_step": self._episode_step,
+            "trial_count": self._trial_count,
+            "cues": self._cues.clone(),
+            "mapping": self._mapping.clone(),
+            "reversed_mapping": self._reversed_mapping.clone(),
+        }
+
+    def load_state_dict(self, state: dict) -> None:
+        self.rng.set_state(state["rng"])
+        self._batch_size = int(state["batch_size"])
+        self._within_trial = int(state["within_trial"])
+        self._episode_step = int(state["episode_step"])
+        self._trial_count = int(state["trial_count"])
+        self._cues = state["cues"].clone()
+        self._mapping = state["mapping"].clone()
+        self._reversed_mapping = state["reversed_mapping"].clone()
+        if self._batch_size > 0:
+            self._build_template()  # deterministic; restores _template_ready
+        else:
+            self._template_ready = False
+
     def _reset_episode_state(self) -> None:
         self._within_trial = 0
         self._episode_step = 0

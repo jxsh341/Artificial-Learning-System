@@ -36,19 +36,41 @@ class Trainer:
         self.grad_clip = float(cfg.get("grad_clip", 0.0))
         self.record_aux_every = int(cfg.get("record_aux_every", 0))
         self.ignore_index = IGNORE_INDEX
+        # ---- execution-state support (M1-a; both disabled by default) ----
+        # Called at the start of every episode, BEFORE env.reset(), with
+        # (episode_index_in_call, trainer). Used to snapshot the execution
+        # state for mid-episode resume (registered semantics: episode restart).
+        self.episode_snapshot_fn = None
+        self._current_step = 0  # global step at the start of the live episode
 
     # ------------------------------------------------------------ training
 
-    def train(self, num_episodes: int) -> list[dict]:
-        """Run ``num_episodes`` training episodes; returns per-step records."""
+    def train(self, num_episodes: int, pause_after_steps: int | None = None) -> list[dict]:
+        """Run ``num_episodes`` training episodes; returns per-step records.
+
+        ``pause_after_steps`` (M1-a, default disabled): stop mid-episode after
+        this many steps of an episode have been taken within this call (the
+        first episode reaches the limit first) and return early. The
+        trainer is then left with an incomplete episode — the caller must
+        either discard it or restore a snapshot (see
+        ``self.episode_snapshot_fn``); the partial autograd graph is NOT
+        preserved across the pause.
+        """
         self.model.train()
         records: list[dict] = []
         step = getattr(self, "_global_step", 0)
         for episode in range(num_episodes):
+            self._current_step = step
+            if self.episode_snapshot_fn is not None:
+                self.episode_snapshot_fn(episode, self)
             obs = self.env.reset(self.batch_size)
             state = self.model.initial_state(self.batch_size)
             losses: list[Tensor] = []
-            for _ in range(self.seq_len):
+            paused = False
+            for k in range(self.seq_len):
+                if pause_after_steps is not None and (step - self._current_step) >= pause_after_steps:
+                    paused = True
+                    break
                 record_aux = (
                     self.record_aux_every > 0 and step % self.record_aux_every == 0
                 )
@@ -91,6 +113,10 @@ class Trainer:
                 records.append(rec)
                 step += 1
 
+            if paused:
+                self._global_step = step
+                return records
+
             loss = torch.stack(losses).mean()
             self.optimizer.zero_grad()
             loss.backward()
@@ -102,6 +128,19 @@ class Trainer:
                 self.logger.log_scalar("train/episode_loss", float(loss.item()), episode)
         self._global_step = step
         return records
+
+    # -------------------------------------------------- execution state (M1-a)
+
+    def execution_state(self) -> dict:
+        """Global step counter (the only trainer state that must survive an
+        episode-boundary resume; episode tensors are re-derived from the
+        environment streams and RNG states, which the checkpoint carries)."""
+        return {"global_step": getattr(self, "_global_step", 0)}
+
+    def load_execution_state(self, state: dict) -> None:
+        """Restore the global step counter saved by :meth:`execution_state`."""
+        self._global_step = int(state["global_step"])
+        self._current_step = self._global_step
 
     # ------------------------------------------------------------ evaluation
 
