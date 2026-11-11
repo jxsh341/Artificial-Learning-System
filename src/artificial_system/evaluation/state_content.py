@@ -136,6 +136,42 @@ def ridge_decode_cv(
     return {"accuracy": acc, "majority_baseline": baseline, "n": int(n)}
 
 
+def ridge_decode_cv_multiclass(
+    X: np.ndarray,
+    y: np.ndarray,
+    lam: float = 1.0,
+    n_folds: int = 5,
+    seed: int = 0,
+) -> dict:
+    """Held-out multiclass ridge regression onto one-hot targets (closed
+    form, same folding/centring as :func:`ridge_decode_cv`). Returns accuracy
+    and the majority-class baseline (max class frequency)."""
+    X = np.asarray(X, dtype=np.float64)
+    y = np.asarray(y, dtype=np.int64)
+    classes = np.unique(y)
+    n, d = X.shape
+    rng = np.random.default_rng(seed)
+    fold_of = rng.permutation(n) % n_folds
+    Y = np.zeros((n, len(classes)))
+    for ci, c in enumerate(classes):
+        Y[y == c, ci] = 1.0
+    correct = 0
+    for f in range(n_folds):
+        tr, te = fold_of != f, fold_of == f
+        if tr.sum() < len(classes) or te.sum() == 0:
+            continue
+        mu = X[tr].mean(0)
+        Xtr = X[tr] - mu
+        W = np.linalg.solve(Xtr.T @ Xtr + lam * np.eye(d), Xtr.T @ Y[tr])
+        pred = np.argmax((X[te] - mu) @ W, axis=1)
+        correct += int((classes[pred] == y[te]).sum())
+    acc = correct / n
+    freqs = {int(c): float((y == c).mean()) for c in classes}
+    baseline = max(freqs.values())
+    return {"accuracy": acc, "majority_baseline": baseline,
+            "class_frequencies": freqs, "n": int(n)}
+
+
 def decode_at_points(states: dict, points: list[str], lam: float = 1.0, seed: int = 0) -> dict:
     """Decode the answer from the state at each named capture point."""
     labels = states["_label"].numpy()

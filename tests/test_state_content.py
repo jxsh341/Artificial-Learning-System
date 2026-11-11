@@ -57,6 +57,31 @@ class TestRidgeDecodeCV:
         assert abs(res["majority_baseline"] - 0.95) < 1e-9
 
 
+class TestRidgeDecodeCVMulticlass:
+    def test_perfectly_separable_four_class(self):
+        rng = np.random.default_rng(3)
+        centers = np.eye(4) * 3.0
+        y = np.tile(np.arange(4), 10)  # 40 rows, balanced
+        X = np.stack([centers[t] + rng.normal(0, 0.1, 4) for t in y])
+        res = sc.ridge_decode_cv_multiclass(X, y, lam=0.1, n_folds=5, seed=0)
+        assert res["accuracy"] > 0.9
+        assert res["majority_baseline"] == pytest.approx(0.25)
+        assert set(res["class_frequencies"]) == {0, 1, 2, 3}
+
+    def test_chance_when_labels_shuffled(self):
+        rng = np.random.default_rng(4)
+        y = rng.integers(0, 4, 80)
+        X = rng.normal(size=(80, 4))
+        res = sc.ridge_decode_cv_multiclass(X, y, lam=1.0, n_folds=5, seed=0)
+        assert res["accuracy"] <= res["majority_baseline"] + 0.35
+
+    def test_baseline_is_majority_frequency(self):
+        y = np.array([0] * 37 + [1] * 2 + [2] * 1)
+        X = np.random.default_rng(5).normal(size=(40, 3))
+        res = sc.ridge_decode_cv_multiclass(X, y, seed=0)
+        assert abs(res["majority_baseline"] - 37 / 40) < 1e-9
+
+
 class TestCaptureTrialStates:
     def test_point_shapes_and_labels(self, tiny_env):
         model, ds, blank = tiny_env
