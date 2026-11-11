@@ -283,6 +283,16 @@ and seeds.
   (substitution) confirmation at the newly located transition points **done (§8p)**:
   behaviour and function co-fail per checkpoint, information survives to 50/65, and past
   50 the substitution battery is contrast-free (donor states anneal together).
+- **WP1 cognitive-readiness audit + M1 phase (report §10)**: the audit
+  (`ALS_COGNITIVE_READINESS.md`) validated internal-state maintenance and measured
+  adaptation, and identified the absent minimal faculties. The first three additions
+  are registered and executed: (1) **execution-state checkpoint + deterministic
+  resume** — registered E1 PASS 4/4 (a run paused mid-training and resumed by a fresh
+  process reproduces the uninterrupted trajectory bit-for-bit) and E1b PASS
+  (mid-episode interrupt recovered by episode restart; one launcher-environment re-run
+  recorded in §10); (2) **query API** `inspection.SystemHandle` (probe / inspect_state
+  / summary over any checkpoint); (3) **progress-field probe** (registered M1-c,
+  PC1 decode + PC2 causal substitution — running).
 - Reproducibility verified: `scripts/verify_reproducibility.py` regenerates all published
   metrics from committed checkpoints + configs (12/12 exact matches).
 - Open items: per-instance/per-candidate guard fidelity (§8v E4's measured 5.55-unit

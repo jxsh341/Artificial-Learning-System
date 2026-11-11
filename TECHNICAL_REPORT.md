@@ -3117,4 +3117,54 @@ the current trial relative to the response?
 - Interpretation: PC1 and PC2 scored independently; all four outcome combinations are
   reportable; thresholds are not re-tested after results are seen.
 
+### M1-a results
+
+Two runner-infrastructure defects were fixed **before any registered battery was
+scored** (no amendments needed): (1) missing src-path bootstrap in the runner
+(`2d69ef8`); (2) the `first`/`second` phases initially wrote to phase-derived
+directories, so a resumed run could not find the saved state — both phases now share
+one registered arm directory (`E1_seedSSS__resume`), and the already-completed
+first-phase saves were reused via rename (no re-training, `71d583b`).
+
+**E1 (primary): PASS — exactly as registered.** Control and resume batteries per seed
+(all four values bit-identical between arms, serialized-float equality):
+
+| seed | immediate | delayed | intact | reset |
+|------|-----------|---------|--------|-------|
+| 0    | 0.6200000047683716 | 0.6600000262260437 | 0.66 | 0.66 |
+| 1    | 0.5400000214576721 | 0.46000000834465027 | 0.46 | 0.34 |
+| 2    | 0.6399999856948853 | 0.6600000262260437 | 0.66 | 0.66 |
+| 3    | 0.5199999809265137 | 0.3400000035762787 | 0.34 | 0.66 |
+
+4/4 → **V-E1 PASS**; no drift adjudication was needed. Letter-vs-spirit: letter passed
+(no exclusions, no amendments, battery scored exactly as registered). Spirit: a
+200-episode run paused mid-training — full execution state (parameters, Adam moments,
+three global RNG streams, both environment stream positions, per-trainer step
+counters) serialized to disk — and continued by a **fresh process** reproduces the
+uninterrupted trajectory to the last float. The resume boundary is invisible to
+learning.
+
+**E1b (secondary, seed 0): PASS — exactly as registered, after a recorded infra
+re-run.** The interrupt fired 5 steps into episode 200 (even index → immediate
+trainer); the episode-start snapshot was captured before that episode's `env.reset`;
+the 5 in-flight steps were discarded; a fresh process restored the snapshot and
+replayed the episode from its start. Battery equals the E1 control seed-0 values
+exactly (0.6200000047683716 / 0.6600000262260437 / 0.66 / 0.66) → **PASS**. One
+letter-vs-spirit note: the registration's parenthetical "global step 6405" is a
+combined-trajectory annotation (200 × 32 pre-interrupt steps); the implementation
+tracks per-trainer counters (each 3200 at the boundary, the discarded steps counted
+nowhere). The registered *semantics* — 5 steps into episode index 200, snapshot at
+episode start, replay — were implemented exactly. The first E1b attempt FAILED as
+scored (deltas +0.020/−0.060/−0.060/0.000): cause and disposition in the infra note
+above — launcher omitted the pinned BLAS thread environment; the re-run under the pin
+passed exactly, confirming launcher-float nondeterminism rather than a contract
+defect. Superseded artifacts retained for audit.
+
+**M1-b (query API): PASS — unit criterion as registered.** Full suite 165 green
+(150 at the WP1 audit; +12 execution-state/API tests incl. both bit-exactness unit
+tests — boundary resume and mid-episode replay — and +3 multiclass-decode tests from
+the M1-c machinery). `SystemHandle` covers round-trip load, probe keys,
+`inspect_state` finiteness, summary fields, and rejects legacy checkpoints with an
+explicit error unless input dims are supplied (recorded limitation).
+
 
