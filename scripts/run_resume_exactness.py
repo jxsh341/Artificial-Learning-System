@@ -145,9 +145,12 @@ def main() -> None:
     ap.add_argument("--outdir", default="results/m1_resume")
     args = ap.parse_args()
 
-    tag = "E1b_seed{:03d}__resume_midep".format(args.seed) \
-        if args.mid_episode else \
-        "E1_seed{:03d}__{}".format(args.seed, args.phase)
+    if args.phase == "control":
+        tag = "E1_seed{:03d}__control".format(args.seed)
+    elif args.mid_episode:
+        tag = "E1b_seed{:03d}__resume_midep".format(args.seed)
+    else:
+        tag = "E1_seed{:03d}__resume".format(args.seed)  # first+second share it
     run_dir = Path(args.outdir) / tag
     run_dir.mkdir(parents=True, exist_ok=True)
 
