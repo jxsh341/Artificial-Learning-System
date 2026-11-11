@@ -3054,6 +3054,22 @@ seed-0 values exactly. E1b failure does not affect E1's verdict (separate criter
 failure with clean (Traceback-free) runs is a contract bug: fix, record an amendment
 here before any re-run, re-run only the affected arms.
 
+**Infra note (recorded 2026-11-11, before the affected arm's re-run).** V-E1 scored
+4/4 exact (PASS, below). The first E1b pair was launched **without** the pinned BLAS
+thread environment (`OMP_NUM_THREADS=1`, `MKL_NUM_THREADS=1`) that every other
+registered wave ran under; torch's default multi-threaded reductions reorder float
+summations, and the drift accumulated over the 200 pre-interrupt episodes (max
+|Δparam| ≈ 7e-3 vs the E1 boundary checkpoint) → registered FAIL. The resume contract
+itself is intact: re-running the identical first-phase path under the pinned
+environment yields an episode-start snapshot **bit-identical** to the E1 boundary
+checkpoint (model, optimizer, all three RNG streams, both environment stream states —
+verified before this re-run). The E1 verdict is unaffected (its wave carried the pin).
+Action: the affected E1b artifacts are retained under
+`results/m1_resume/E1b_seed000__resume_midep__unpinned_env_superseded/` for audit, and
+the E1b arm is re-run under the pinned environment. No criterion, threshold, or
+semantics changed — this is a launcher-infrastructure fix, in the same class as the
+two pre-result infra fixes above.
+
 ### M1-b: inspection / query API
 
 Deliverable: `artificial_system.inspection.SystemHandle` — load a checkpoint (old or
